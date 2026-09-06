@@ -1,6 +1,6 @@
 import { loadStudentsData, saveStudentsData, escapeHtml, store, getStudentOdevler, addStudentArrayRecord, updateStudentArrayRecord, deleteStudentArrayRecord } from './store.js';
 import { updateMobileNavActive } from './auth.js';
-import { buildGuidanceCenterDashboard, getStudentInitials } from './guidance-center-insights.js';
+import { buildGuidanceCenterDashboard, getStudentInitials, formatActivityDate } from './guidance-center-insights.js';
 import { buildStudentGuidanceDetail } from './guidance-student-insights.js';
 import {
     getStudentGuidanceRecords,
@@ -1947,48 +1947,234 @@ export function renderGuidanceStudentDetail(studentId) {
             </div>
         `;
     } else if (studentTab === 'study') {
+        const planProfile = student.studyPlanProfile || null;
+        const rawStudyPlan = student.studyPlan || {};
+        const CANONICAL_DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+        const studyStageNames = { beginner: 'Başlangıç', intermediate: 'Orta', advanced: 'İleri' };
+        const studyIntensityNames = { light: 'Hafif', balanced: 'Dengeli', intensive: 'Yoğun' };
+
+        const getStudyTasksForDay = (dayName) => {
+            if (!rawStudyPlan || typeof rawStudyPlan !== 'object') return [];
+            if (Array.isArray(rawStudyPlan[dayName])) return rawStudyPlan[dayName];
+            const matchKey = Object.keys(rawStudyPlan).find(k => k.toLowerCase() === dayName.toLowerCase());
+            if (matchKey && Array.isArray(rawStudyPlan[matchKey])) return rawStudyPlan[matchKey];
+            return [];
+        };
+
+        const totalStudyTasksCount = CANONICAL_DAYS.reduce((sum, day) => sum + getStudyTasksForDay(day).length, 0);
+        const hasPlanProfile = Boolean(planProfile || detail.activePlan);
+        const hasAnyStudyPlan = hasPlanProfile || totalStudyTasksCount > 0;
+
+        let studyPlanMainContentHtml = '';
+
+        if (!hasAnyStudyPlan) {
+            studyPlanMainContentHtml = `
+                <article class="app-panel p-8 text-center space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-xl">
+                        <i class="fas fa-compass"></i>
+                    </div>
+                    <div class="max-w-md mx-auto space-y-1">
+                        <h4 class="font-black text-base text-gray-900 dark:text-white">Henüz çalışma planı oluşturulmamış.</h4>
+                        <p class="text-xs text-gray-500">Öğrenciye özel seviye, teknik ve gün seçimleriyle akıllı haftalık çalışma programı hazırlayabilirsiniz.</p>
+                    </div>
+                    <div>
+                        <button onclick="showStudyPlanSetup('${studentId}')" class="btn-primary min-h-[44px] px-5 text-xs font-bold inline-flex items-center gap-2">
+                            <i class="fas fa-magic"></i> Çalışma Planı Oluştur
+                        </button>
+                    </div>
+                </article>
+            `;
+        } else {
+            const planSubject = planProfile?.subject || detail.activePlan?.subject || 'Genel Program';
+            const planBadge = planProfile?.badge || detail.activePlan?.badge || 'Çalışma Planı';
+            const planStage = studyStageNames[planProfile?.stage || detail.activePlan?.stage] || 'Başlangıç';
+            const planIntensity = studyIntensityNames[planProfile?.intensity] || 'Dengeli';
+            const planDuration = planProfile?.durationWeeks || detail.activePlan?.durationWeeks || 1;
+            const planMinutes = planProfile?.dailyMinutes || 30;
+            const planDate = planProfile?.generatedAt ? formatActivityDate(planProfile.generatedAt) : 'Mevcut';
+            const planStatusText = detail.interventionImpact?.status === 'measured' ? detail.interventionImpact.impactLabel : 'Aktif Program';
+
+            const activePlanSummaryCardHtml = `
+                <article class="app-panel p-5 space-y-4 bg-gradient-to-br from-white to-gray-50/60 dark:from-gray-900 dark:to-gray-900/40">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+                        <div class="flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center text-lg shrink-0">
+                                🏅
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-black text-base text-gray-900 dark:text-white">${escapeHtml(planBadge)}</h3>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/80">
+                                        ${escapeHtml(planStatusText)}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(planSubject)} · ${planDuration} haftalık program</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="exportStudyPlanToPdf('${studentId}')" class="btn-secondary min-h-[44px] px-3.5 text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" title="Haftalık Programı PDF Olarak İndir">
+                                <i class="fas fa-file-pdf text-emerald-600"></i>
+                                <span>PDF</span>
+                            </button>
+                            <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary min-h-[44px] px-3.5 text-xs font-bold flex items-center gap-1.5" title="Program Ölçütlerini Yeniden Düzenle">
+                                <i class="fas fa-edit"></i>
+                                <span>Düzenle</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Parametre Rozetleri -->
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-bold text-gray-700 dark:text-gray-300">
+                            Aşama: <strong class="text-gray-900 dark:text-white">${planStage}</strong>
+                        </span>
+                        <span class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-bold text-gray-700 dark:text-gray-300">
+                            Yoğunluk: <strong class="text-gray-900 dark:text-white">${planIntensity}</strong>
+                        </span>
+                        <span class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-bold text-gray-700 dark:text-gray-300">
+                            Günlük: <strong class="text-gray-900 dark:text-white">${planMinutes} dk</strong>
+                        </span>
+                        ${planDate ? `
+                            <span class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-bold text-gray-700 dark:text-gray-300">
+                                Tarih: <strong class="text-gray-900 dark:text-white">${escapeHtml(planDate)}</strong>
+                            </span>
+                        ` : ''}
+                    </div>
+                </article>
+            `;
+
+            let weeklyDaysContentHtml = '';
+
+            if (totalStudyTasksCount === 0) {
+                weeklyDaysContentHtml = `
+                    <div class="p-6 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/50 text-center space-y-2">
+                        <p class="text-sm font-bold text-amber-800 dark:text-amber-300"><i class="fas fa-info-circle mr-1.5"></i> Aktif plan profili mevcut ancak haftalık görev eklenmemiş.</p>
+                        <p class="text-xs text-gray-500">Program sihirbazını kullanarak günlere otomatik görev atayabilir veya düzenleyebilirsiniz.</p>
+                        <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary min-h-[44px] px-4 text-xs font-bold mt-2 inline-flex items-center gap-1.5">
+                            <i class="fas fa-compass"></i> Programı Yapılandır
+                        </button>
+                    </div>
+                `;
+            } else {
+                const daysGridHtml = CANONICAL_DAYS.map(day => {
+                    const dayTasks = getStudyTasksForDay(day);
+                    return `
+                        <article class="p-3.5 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/70 dark:border-gray-800 space-y-2.5 flex flex-col justify-between">
+                            <div class="space-y-2.5">
+                                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <i class="far fa-calendar-check text-xs text-indigo-600 dark:text-indigo-400"></i>
+                                        <h4 class="font-black text-sm text-gray-900 dark:text-white">${day}</h4>
+                                    </div>
+                                    ${dayTasks.length > 0 ? `
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200/80">
+                                            ${dayTasks.length} görev
+                                        </span>
+                                    ` : `
+                                        <span class="text-[10px] text-gray-400 font-semibold">Boş</span>
+                                    `}
+                                </div>
+                                <div class="space-y-2">
+                                    ${dayTasks.length === 0 ? `
+                                        <p class="text-xs text-gray-400 italic py-3 text-center">Bu gün için görev planlanmamış.</p>
+                                    ` : dayTasks.map(task => {
+                                        if (typeof task === 'string') {
+                                            const parts = task.split('·').map(p => p.trim());
+                                            const mainTitle = parts[0];
+                                            const tags = parts.slice(1);
+                                            return `
+                                                <div class="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200/70 dark:border-gray-800 text-xs space-y-1.5">
+                                                    <p class="font-bold text-gray-800 dark:text-gray-200 leading-snug">${escapeHtml(mainTitle)}</p>
+                                                    ${tags.length ? `
+                                                        <div class="flex flex-wrap gap-1.5 pt-0.5 text-[10px]">
+                                                            ${tags.map(tag => `
+                                                                <span class="px-2 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-semibold">
+                                                                    ${escapeHtml(tag)}
+                                                                </span>
+                                                            `).join('')}
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                            `;
+                                        } else if (typeof task === 'object' && task !== null) {
+                                            const title = task.title || task.konu || task.name || task.text || 'Çalışma Görevi';
+                                            const desc = task.description || task.aciklama || task.detail || '';
+                                            const question = task.questionTarget || task.questionCount || task.soru || null;
+                                            const duration = task.duration || task.durationMinutes || task.sure || null;
+                                            const resource = task.resource || task.kaynak || null;
+                                            const isDone = Boolean(task.completed || task.tamamlandi);
+                                            return `
+                                                <div class="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200/70 dark:border-gray-800 text-xs space-y-1.5">
+                                                    <div class="flex items-start justify-between gap-1.5">
+                                                        <p class="font-bold text-gray-800 dark:text-gray-200 leading-snug ${isDone ? 'line-through opacity-70' : ''}">${escapeHtml(title)}</p>
+                                                        ${isDone ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 shrink-0">Tamamlandı</span>' : ''}
+                                                    </div>
+                                                    ${desc ? `<p class="text-[11px] text-gray-500">${escapeHtml(desc)}</p>` : ''}
+                                                    <div class="flex flex-wrap gap-1.5 pt-0.5 text-[10px] text-gray-500 font-semibold">
+                                                        ${question ? `<span class="px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">${question} soru</span>` : ''}
+                                                        ${duration ? `<span class="px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">${duration} dk</span>` : ''}
+                                                        ${resource ? `<span class="px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 truncate max-w-[120px]">${escapeHtml(resource)}</span>` : ''}
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }
+                                        return '';
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+
+                weeklyDaysContentHtml = `
+                    <section class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-black text-base text-gray-900 dark:text-white">Haftalık Çalışma Programı</h3>
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                    ${totalStudyTasksCount} görev
+                                </span>
+                            </div>
+                            <span class="text-xs text-gray-400 font-medium">Pazartesi – Pazar</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                            ${daysGridHtml}
+                        </div>
+                    </section>
+                `;
+            }
+
+            studyPlanMainContentHtml = `
+                <div class="space-y-4">
+                    ${activePlanSummaryCardHtml}
+                    ${weeklyDaysContentHtml}
+                </div>
+            `;
+        }
+
         tabBodyHtml = `
             <!-- ==================== ÇALIŞMA PLANI ==================== -->
             <div class="space-y-4">
-                <section class="grid gap-4 lg:grid-cols-2">
-                    <!-- Sol Kolon: Çalışma Planı Etki Analizi & Aktif Plan -->
-                    <div class="space-y-4">
-                        <article class="app-panel p-5 space-y-3">
-                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                                <div>
-                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Çalışma Planı Etki Analizi</h3>
-                                    <p class="text-xs text-gray-500 mt-0.5">Çalışma programı sonrası ölçülen net değişimi</p>
-                                </div>
-                                <button onclick="showStudyPlanSetup('${studentId}')" class="btn-primary px-3.5 py-2 text-xs font-bold min-h-[44px] flex items-center gap-1.5">
-                                    <i class="fas fa-compass"></i> Plan Oluştur
-                                </button>
-                            </div>
+                <!-- Aktif Plan Özeti ve Haftalık Program -->
+                ${studyPlanMainContentHtml}
+
+                <!-- Alt Bölüm: Etki Analizi & Birebir Dersler / Kokpit -->
+                <section class="grid gap-4 lg:grid-cols-2 mt-4">
+                    <article class="app-panel p-5 space-y-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
                             <div>
-                                ${impactSectionHtml}
+                                <h3 class="font-black text-base text-gray-900 dark:text-white">Çalışma Planı Etki Analizi</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Çalışma programı sonrası ölçülen net değişimi</p>
                             </div>
-                        </article>
+                            <button onclick="showStudyPlanSetup('${studentId}')" class="btn-primary px-3.5 py-2 text-xs font-bold min-h-[44px] flex items-center gap-1.5">
+                                <i class="fas fa-compass"></i> Plan Oluştur
+                            </button>
+                        </div>
+                        <div>
+                            ${impactSectionHtml}
+                        </div>
+                    </article>
 
-                        ${detail.activePlan ? `
-                            <article class="app-panel p-5 space-y-3">
-                                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                                    <div>
-                                        <h3 class="font-black text-base text-gray-900 dark:text-white">Aktif Çalışma Planı</h3>
-                                        <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(detail.activePlan.subject)} · ${detail.activePlan.durationWeeks || 1} haftalık</p>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <button onclick="exportStudyPlanToPdf('${studentId}')" class="btn-secondary min-h-[38px] px-3 text-xs font-bold" title="PDF İndir">
-                                            <i class="fas fa-file-pdf text-emerald-600 mr-1"></i> PDF
-                                        </button>
-                                        <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary min-h-[38px] px-3 text-xs font-bold">
-                                            Düzenle
-                                        </button>
-                                    </div>
-                                </div>
-                            </article>
-                        ` : ''}
-                    </div>
-
-                    <!-- Sağ Kolon: Son Birebir Dersler & Kokpit -->
                     <div class="space-y-4">
                         <article class="app-panel p-5 space-y-3">
                             <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">

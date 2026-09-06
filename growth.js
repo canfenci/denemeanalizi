@@ -131,7 +131,7 @@ export function createConfiguredStudyPlan(studentId) {
     const days = [...document.querySelectorAll('input[name="studyDay"]:checked')].map(input => input.value);
     if (!techniques.length) return alert('Lütfen en az bir çalışma tekniği seçin.');
     if (!days.length) return alert('Lütfen en az bir çalışma günü seçin.');
-    autoPopulateStudyPlan(studentId, {
+    return autoPopulateStudyPlan(studentId, {
         mode,
         stageChoice,
         intensityChoice,
@@ -145,7 +145,7 @@ export function createConfiguredStudyPlan(studentId) {
 export async function autoPopulateStudyPlan(studentId, configuration = {}) {
     const students = loadStudentsData();
     const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx === -1) return;
+    if (sIdx === -1) return { ok: false, error: 'Student not found' };
     const student = students[sIdx];
     const mode = typeof configuration === 'string' ? configuration : configuration.mode || 'general';
     const subject = mode.startsWith('branch:') ? mode.slice(7) : '';
@@ -159,17 +159,32 @@ export async function autoPopulateStudyPlan(studentId, configuration = {}) {
     const badge = getStudyBadge(subject || 'general', stage);
     const newStudyPlan = buildAdaptiveStudyPlan({ subject, stage, intensity, techniques, days, dailyMinutes });
     const newProfile = { mode, subject, stage, intensity, techniques, days, dailyMinutes, durationWeeks, badge, score: profile.score, generatedAt: new Date().toISOString() };
-    await replaceStudyPlan(studentId, {
+    const res = await replaceStudyPlan(studentId, {
         studyPlan: newStudyPlan,
         studyPlanProfile: newProfile
     });
+    if (!res || !res.ok) {
+        if (typeof alert === 'function') {
+            alert(res?.error?.message || 'Çalışma planı kaydedilirken bir hata oluştu.');
+        }
+        return res;
+    }
     closeStudyPlanSetup();
     showSyncStatus(`🏅 ${badge} programı oluşturuldu`, false);
+
+    // If on Guidance student detail, maintain/set study tab and rerender
+    if (store.currentPage === 'guidance' || store.currentPage === 'guidance-detail' || typeof window.renderGuidanceStudentDetail === 'function') {
+        window._guidanceStudentTab = 'study';
+        if (typeof window.renderGuidanceStudentDetail === 'function') {
+            window.renderGuidanceStudentDetail(studentId);
+        }
+    }
     if (window.renderStudentPanel) {
         window.renderStudentPanel(studentId).then(() => {
             if (window.switchStudentTab) window.switchStudentTab('calisma');
         });
     }
+    return res;
 }
 export const generateAdaptiveStudyPlan = autoPopulateStudyPlan;
 
