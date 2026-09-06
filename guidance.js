@@ -25,6 +25,11 @@ import {
     shiftWeekRange,
     formatWeekDateRange
 } from './guidance-weekly-insights.js';
+import {
+    buildHomeworkPerformanceInsights,
+    buildSchoolExamPerformanceInsights,
+    LGS_SUBJECTS
+} from './guidance-performance-insights.js';
 
 export function renderGuidancePage(options = {}) {
     store.currentPage = 'guidance';
@@ -1210,6 +1215,410 @@ export function renderGuidanceStudentDetail(studentId) {
         </div>
     `;
 
+    // ==================== PERFORMANS MERKEZİ (UX-08) ====================
+    const studentHomeworks = getStudentOdevler(student) || student.odevler || [];
+    const hwInsights = buildHomeworkPerformanceInsights(student, studentHomeworks);
+    const examInsights = buildSchoolExamPerformanceInsights(student);
+
+
+    const perfTab = window._guidancePerformanceTab || 'homework';
+    const hwRange = window._guidanceHwRange || 'all';
+    const examRange = window._guidanceExamRange || 'all';
+    const selectedExamSubject = window._guidanceExamSelectedSubject || 'Matematik';
+
+    const hwFilteredSeries = hwRange === 'last5'
+        ? hwInsights.slices.last5
+        : (hwRange === 'last10' ? hwInsights.slices.last10 : hwInsights.slices.all);
+
+    const examFilteredSeries = examRange === 'last5'
+        ? examInsights.slices.last5
+        : (examRange === 'last10' ? examInsights.slices.last10 : examInsights.slices.all);
+
+    let hwTrendBadge = '';
+    if (hwInsights.summary.trendDirection === 'improving') {
+        hwTrendBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200"><i class="fas fa-arrow-up text-[9px] mr-0.5"></i> Yükseliş</span>';
+    } else if (hwInsights.summary.trendDirection === 'declining') {
+        hwTrendBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200"><i class="fas fa-arrow-down text-[9px] mr-0.5"></i> Düşüş</span>';
+    } else if (hwInsights.summary.trendDirection === 'stable') {
+        hwTrendBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-gray-200">İstikrarlı</span>';
+    }
+
+    let examTrendBadge = '';
+    if (examInsights.summary.trendDirection === 'improving') {
+        examTrendBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200"><i class="fas fa-arrow-up text-[9px] mr-0.5"></i> Yükseliş</span>';
+    } else if (examInsights.summary.trendDirection === 'declining') {
+        examTrendBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200"><i class="fas fa-arrow-down text-[9px] mr-0.5"></i> Düşüş</span>';
+    } else if (examInsights.summary.trendDirection === 'stable') {
+        examTrendBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-gray-200">İstikrarlı</span>';
+    }
+
+    const homeworkTabHtml = `
+        <div class="space-y-4">
+            <!-- 6 Kompakt Üst KPI Kartı -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Ortalama Doğru</p>
+                    <p class="text-lg font-black text-gray-900 dark:text-white mt-1">${hwInsights.summary.averageCorrect !== null ? hwInsights.summary.averageCorrect : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Ortalama Yanlış</p>
+                    <p class="text-lg font-black text-gray-900 dark:text-white mt-1">${hwInsights.summary.averageWrong !== null ? hwInsights.summary.averageWrong : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Ortalama Net</p>
+                    <p class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-1">${hwInsights.summary.averageNet !== null ? `${hwInsights.summary.averageNet} net` : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Son Ödev Neti</p>
+                    <p class="text-lg font-black text-gray-900 dark:text-white mt-1">${hwInsights.summary.latestNet !== null ? `${hwInsights.summary.latestNet} net` : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Net Değişimi</p>
+                    <div class="flex items-center gap-1 mt-1">
+                        <p class="text-lg font-black ${hwInsights.summary.netChange > 0 ? 'text-emerald-600' : (hwInsights.summary.netChange < 0 ? 'text-rose-600' : 'text-gray-700 dark:text-gray-300')}">
+                            ${hwInsights.summary.netChange !== null ? (hwInsights.summary.netChange > 0 ? `+${hwInsights.summary.netChange}` : hwInsights.summary.netChange) : '—'}
+                        </p>
+                        ${hwTrendBadge}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Tamamlanan Ödev</p>
+                    <p class="text-lg font-black text-gray-900 dark:text-white mt-1">${hwInsights.summary.totalCompleted} / ${hwInsights.summary.totalAssigned}</p>
+                </div>
+            </div>
+
+            <!-- Deterministik Rehberlik Yorumu (Ödev) -->
+            <div class="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/40 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs shrink-0 mt-0.5">
+                    <i class="fas fa-lightbulb"></i>
+                </span>
+                <div class="text-xs">
+                    <p class="font-black text-indigo-900 dark:text-indigo-300 uppercase tracking-wider text-[11px]">Rehberlik Değerlendirmesi & Karar Desteği</p>
+                    <p class="text-gray-800 dark:text-gray-200 mt-0.5 font-medium leading-relaxed">${escapeHtml(hwInsights.narrative)}</p>
+                </div>
+            </div>
+
+            <!-- Ödev Net Trend Grafiği -->
+            <div class="p-4 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h4 class="font-black text-sm text-gray-900 dark:text-white">Ödev Net Gelişim Trendi</h4>
+                        <p class="text-[11px] text-gray-500">Tamamlanan ödevlerdeki net değişimi</p>
+                    </div>
+                    <div class="inline-flex p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-bold">
+                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'last5')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${hwRange === 'last5' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 5</button>
+                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'last10')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${hwRange === 'last10' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 10</button>
+                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'all')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${hwRange === 'all' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Tümü</button>
+                    </div>
+                </div>
+                <div class="relative w-full h-56">
+                    ${hwFilteredSeries.length > 0 ? `
+                        <canvas id="guidanceHomeworkNetChart"></canvas>
+                    ` : `
+                        <div class="h-full flex flex-col items-center justify-center text-gray-400 text-xs text-center p-4">
+                            <i class="fas fa-chart-line text-2xl mb-2 opacity-40"></i>
+                            <p>Grafik çizimi için henüz tamamlanmış ödev sonucu bulunmuyor.</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- 2 Kolon: Zayıf Konular vs Hata Nedenleri -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Sol: Zayıf Konu / Hata Dağılımı (Ünite + Konu, no kazanım) -->
+                <div class="p-4 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                        <div>
+                            <h4 class="font-black text-sm text-gray-900 dark:text-white">Ödevlerde Zorlanılan Konular</h4>
+                            <p class="text-[11px] text-gray-500">Ünite ve konu bazında hata yoğunluğu</p>
+                        </div>
+                        <span class="text-xs font-bold text-gray-400">${hwInsights.weakTopics.length} konu</span>
+                    </div>
+                    <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        ${hwInsights.weakTopics.length ? hwInsights.weakTopics.map(topic => `
+                            <div class="p-2.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="font-bold text-xs text-gray-900 dark:text-white truncate">${escapeHtml(topic.konu)}</p>
+                                    <p class="text-[11px] text-gray-500 truncate mt-0.5">${escapeHtml(topic.unite)} · ${topic.assignmentCount} ödevde tekrar etti</p>
+                                </div>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                        topic.status === 'chronic' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-900' :
+                                        (topic.status === 'repeated' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-900' :
+                                        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300')
+                                    }">
+                                        ${topic.status === 'chronic' ? 'Kronik' : (topic.status === 'repeated' ? 'Tekrarlayan' : 'İzlenmeli')}
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded-lg text-xs font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                                        ${topic.errorCount} hata
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-xs text-gray-400 py-4 text-center">Zayıf konu tespiti bulunmuyor.</p>'}
+                    </div>
+                </div>
+
+                <!-- Sağ: Hata Nedenleri Dağılımı (7 Canonical Keys) -->
+                <div class="p-4 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                        <div>
+                            <h4 class="font-black text-sm text-gray-900 dark:text-white">Hata Nedenleri Dağılımı</h4>
+                            <p class="text-[11px] text-gray-500">Kavramsal eksiklik vs sınav tekniği analizi</p>
+                        </div>
+                        ${hwInsights.dominantErrorType ? `
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200">
+                                Baskın: ${escapeHtml(hwInsights.dominantErrorType.label)}
+                            </span>
+                        ` : ''}
+                    </div>
+                    <!-- 7 Neden Bar Dağılımı -->
+                    <div class="space-y-2">
+                        ${hwInsights.errorReasons.map(r => `
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-gray-800 dark:text-gray-200">${escapeHtml(r.label)}</span>
+                                    <span class="text-gray-500 font-semibold">${r.count} (%${r.percentage})</span>
+                                </div>
+                                <div class="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-indigo-500 rounded-full transition-all duration-300" style="width: ${r.percentage}%"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <!-- Kategorik Özet -->
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-xs">
+                        <div class="p-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Kavramsal / Bilgi</p>
+                            <p class="text-sm font-black text-indigo-700 dark:text-indigo-400 mt-0.5">%${hwInsights.errorCategoryBreakdown.academic.percentage}</p>
+                        </div>
+                        <div class="p-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Sınav Tekniği</p>
+                            <p class="text-sm font-black text-amber-700 dark:text-amber-400 mt-0.5">%${hwInsights.errorCategoryBreakdown.technique.percentage}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const examsTabHtml = `
+        <div class="space-y-4">
+            <!-- 6 Kompakt Üst KPI Kartı -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Son Deneme Neti</p>
+                    <p class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-1">${examInsights.summary.latestTotalNet !== null ? `${examInsights.summary.latestTotalNet} net` : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Ortalama Net</p>
+                    <p class="text-lg font-black text-gray-900 dark:text-white mt-1">${examInsights.summary.averageTotalNet !== null ? `${examInsights.summary.averageTotalNet} net` : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Son Net Farkı</p>
+                    <div class="flex items-center gap-1 mt-1">
+                        <p class="text-lg font-black ${examInsights.summary.totalNetChange > 0 ? 'text-emerald-600' : (examInsights.summary.totalNetChange < 0 ? 'text-rose-600' : 'text-gray-700 dark:text-gray-300')}">
+                            ${examInsights.summary.totalNetChange !== null ? (examInsights.summary.totalNetChange > 0 ? `+${examInsights.summary.totalNetChange}` : examInsights.summary.totalNetChange) : '—'}
+                        </p>
+                        ${examTrendBadge}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">En Güçlü Ders</p>
+                    <p class="text-xs font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">${examInsights.summary.strongestSubject ? `${examInsights.summary.strongestSubject.shortName} (%${Math.round(examInsights.summary.strongestSubject.performancePercent)} · ${examInsights.summary.strongestSubject.averageNet} net)` : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">En Zayıf Ders</p>
+                    <p class="text-xs font-black text-rose-600 dark:text-rose-400 mt-1 truncate">${examInsights.summary.weakestSubject ? `${examInsights.summary.weakestSubject.shortName} (%${Math.round(examInsights.summary.weakestSubject.performancePercent)} · ${examInsights.summary.weakestSubject.averageNet} net)` : '—'}</p>
+                </div>
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                    <p class="text-[11px] font-black uppercase text-gray-400">Genel Deneme</p>
+                    <p class="text-lg font-black text-gray-900 dark:text-white mt-1">${examInsights.summary.examCount} Deneme</p>
+                </div>
+            </div>
+
+            <!-- Deterministik Rehberlik Yorumu (Deneme) -->
+            <div class="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/40 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs shrink-0 mt-0.5">
+                    <i class="fas fa-bullseye"></i>
+                </span>
+                <div class="text-xs">
+                    <p class="font-black text-indigo-900 dark:text-indigo-300 uppercase tracking-wider text-[11px]">Rehberlik Değerlendirmesi & Karar Desteği</p>
+                    <p class="text-gray-800 dark:text-gray-200 mt-0.5 font-medium leading-relaxed">${escapeHtml(examInsights.narrative)}</p>
+                </div>
+            </div>
+
+            <!-- Toplam Net Trend Grafiği -->
+            <div class="p-4 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h4 class="font-black text-sm text-gray-900 dark:text-white">Okul Denemeleri Toplam Net Trendi</h4>
+                        <p class="text-[11px] text-gray-500">LGS genel denemelerindeki toplam 90 soru üzerinden gelişim</p>
+                    </div>
+                    <div class="inline-flex p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-bold">
+                        <button onclick="setGuidanceExamRange('${studentId}', 'last5')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${examRange === 'last5' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 5</button>
+                        <button onclick="setGuidanceExamRange('${studentId}', 'last10')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${examRange === 'last10' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 10</button>
+                        <button onclick="setGuidanceExamRange('${studentId}', 'all')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${examRange === 'all' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Tümü</button>
+                    </div>
+                </div>
+                <div class="relative w-full h-56">
+                    ${examFilteredSeries.length > 0 ? `
+                        <canvas id="guidanceExamTotalNetChart"></canvas>
+                    ` : `
+                        <div class="h-full flex flex-col items-center justify-center text-gray-400 text-xs text-center p-4">
+                            <i class="fas fa-chart-line text-2xl mb-2 opacity-40"></i>
+                            <p>Grafik çizimi için henüz okul denemesi (genel deneme) kaydı bulunmuyor.</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- LGS 6 Ders Performans Tablosu -->
+            <div class="p-4 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-3">
+                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                    <div>
+                        <h4 class="font-black text-sm text-gray-900 dark:text-white">LGS Ders Bazlı Performans Tablosu</h4>
+                        <p class="text-[11px] text-gray-500">6 ana dersin son sınav ve genel ortalama analizi</p>
+                    </div>
+                    ${examInsights.lastExamComparison.hasComparison ? `
+                        <div class="hidden sm:flex items-center gap-3 text-xs">
+                            ${examInsights.lastExamComparison.biggestGain ? `<span class="text-emerald-600 font-bold"><i class="fas fa-arrow-up text-[10px]"></i> En Yüksek: ${examInsights.lastExamComparison.biggestGain.shortName} (+${examInsights.lastExamComparison.biggestGain.delta})</span>` : ''}
+                            ${examInsights.lastExamComparison.biggestLoss ? `<span class="text-rose-600 font-bold"><i class="fas fa-arrow-down text-[10px]"></i> En Düşük: ${examInsights.lastExamComparison.biggestLoss.shortName} (${examInsights.lastExamComparison.biggestLoss.delta})</span>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-800 text-gray-400 font-black text-[11px] uppercase">
+                                <th class="py-2.5 px-3">Ders</th>
+                                <th class="py-2.5 px-3 text-center">Soru</th>
+                                <th class="py-2.5 px-3 text-center">Son Sınav (D / Y / B)</th>
+                                <th class="py-2.5 px-3 text-center">Son Net</th>
+                                <th class="py-2.5 px-3 text-center">Ort. Net</th>
+                                <th class="py-2.5 px-3 text-center">Değişim</th>
+                                <th class="py-2.5 px-3 text-center">Başarı Oranı</th>
+                                <th class="py-2.5 px-3 text-right">Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800/60 font-medium">
+                            ${examInsights.subjectPerformance.map(sub => `
+                                <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
+                                <td class="py-2.5 px-3 font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${sub.color}"></span>
+                                    <span>${escapeHtml(sub.name)}</span>
+                                </td>
+                                <td class="py-2.5 px-3 text-center text-gray-500">${sub.questionCount}</td>
+                                <td class="py-2.5 px-3 text-center text-gray-700 dark:text-gray-300">
+                                    ${sub.hasData ? `
+                                        <span class="text-emerald-600 font-bold">${sub.latestDogru} D</span> ·
+                                        <span class="text-rose-600 font-bold">${sub.latestYanlis} Y</span> ·
+                                        <span class="text-gray-400">${sub.latestBos} B</span>
+                                    ` : '<span class="text-gray-400">—</span>'}
+                                </td>
+                                <td class="py-2.5 px-3 text-center font-black text-indigo-600 dark:text-indigo-400">${sub.hasData && Number.isFinite(sub.latestNet) ? sub.latestNet.toFixed(2) : '—'}</td>
+                                <td class="py-2.5 px-3 text-center font-bold text-gray-800 dark:text-gray-200">${sub.hasData && sub.averageNet !== null && Number.isFinite(sub.averageNet) ? sub.averageNet.toFixed(2) : '—'}</td>
+                                <td class="py-2.5 px-3 text-center">
+                                    ${sub.change !== null ? `
+                                        <span class="font-bold ${sub.change > 0 ? 'text-emerald-600' : (sub.change < 0 ? 'text-rose-600' : 'text-gray-500')}">
+                                             ${sub.change > 0 ? `+${sub.change.toFixed(2)}` : sub.change.toFixed(2)}
+                                        </span>
+                                    ` : '<span class="text-gray-400">—</span>'}
+                                </td>
+                                <td class="py-2.5 px-3 text-center">
+                                    ${sub.hasData && sub.successRate !== null ? `
+                                        <div class="inline-flex items-center gap-2">
+                                            <div class="w-16 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full" style="width: ${Math.max(0, Math.min(100, sub.successRate))}%; background-color: ${sub.color};"></div>
+                                            </div>
+                                            <span class="text-[11px] font-bold text-gray-500">%${Math.round(sub.successRate)}</span>
+                                        </div>
+                                    ` : '<span class="text-gray-400">—</span>'}
+                                </td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                        sub.status === 'strong' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200' :
+                                        (sub.status === 'needs_intervention' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200' :
+                                        (sub.status === 'no_data' ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700' :
+                                        'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200'))
+                                    }">
+                                        ${sub.status === 'strong' ? 'Güçlü' : (sub.status === 'needs_intervention' ? 'Müdahale' : (sub.status === 'no_data' ? 'Veri Yok' : 'Orta'))}
+                                    </span>
+                                </td>
+                            </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Ders Bazlı Net Trendi (Tek Ders Çizgi Grafiği) -->
+            <div class="p-4 bg-white dark:bg-gray-900/70 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h4 class="font-black text-sm text-gray-900 dark:text-white">Ders Bazlı Net Gelişim Trendi</h4>
+                        <p class="text-[11px] text-gray-500">Seçili dersin genel denemelerdeki net grafiği</p>
+                    </div>
+                    <!-- 6 Ders Butonları -->
+                    <div class="flex items-center gap-1 flex-wrap">
+                        ${LGS_SUBJECTS.map(sub => `
+                            <button onclick="setGuidanceExamSubject('${studentId}', '${sub.key}')"
+                                    class="px-2.5 py-1 min-h-[36px] text-xs font-bold rounded-lg border transition-colors ${
+                                        selectedExamSubject === sub.key
+                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+                                    }">
+                                ${sub.shortName}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="relative w-full h-56">
+                    ${(examInsights.subjectTrendSeries[selectedExamSubject] || []).length > 0 ? `
+                        <canvas id="guidanceExamSubjectChart"></canvas>
+                    ` : `
+                        <div class="h-full flex flex-col items-center justify-center text-gray-400 text-xs text-center p-4">
+                            <i class="fas fa-chart-line text-2xl mb-2 opacity-40"></i>
+                            <p>Seçili ders için henüz genel deneme kaydı bulunmuyor.</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+
+    const performanceCenterHtml = `
+        <section class="app-panel p-5 mt-4 space-y-4" id="guidance-performance-center">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">
+                        <i class="fas fa-chart-line"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-black text-base text-gray-900 dark:text-white">Performans Merkezi</h3>
+                        <p class="text-xs text-gray-500">Ödev ve okul denemeleri analitik karar desteği</p>
+                    </div>
+                </div>
+
+                <!-- 2 Sekmeli Tab Butonları -->
+                <div class="inline-flex p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200/60 dark:border-gray-700/60 text-xs font-bold">
+                    <button onclick="switchGuidancePerformanceTab('${studentId}', 'homework')"
+                            class="min-h-[40px] px-4 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${perfTab === 'homework' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
+                        <i class="fas fa-book-open"></i>
+                        <span>Ödev Performansı</span>
+                    </button>
+                    <button onclick="switchGuidancePerformanceTab('${studentId}', 'exams')"
+                            class="min-h-[40px] px-4 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${perfTab === 'exams' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>Okul Denemeleri</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab İçeriği -->
+            ${perfTab === 'homework' ? homeworkTabHtml : examsTabHtml}
+        </section>
+    `;
+
     document.getElementById('dynamic-content').innerHTML = `
         <div class="app-page pb-28 sm:pb-8">
             <!-- Header -->
@@ -1281,8 +1690,12 @@ export function renderGuidanceStudentDetail(studentId) {
                 `).join('')}
             </section>
 
+            <!-- Performans Merkezi (Ödev & Okul Denemeleri) -->
+            ${performanceCenterHtml}
+
             <!-- Ana 2 Kolonlu Blok: Kanıtlar vs Müdahale & Rehberlik Günlüğü -->
             <section class="grid gap-4 lg:grid-cols-2 mt-4">
+
                 <!-- Sol Kolon: Akademik Kanıtlar -->
                 <div class="space-y-4">
                     <!-- Deneme Eğilimi & Son Sınavlar -->
@@ -1454,7 +1867,203 @@ export function renderGuidanceStudentDetail(studentId) {
             </section>
         </div>
     `;
+
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+            renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject);
+        });
+    } else {
+        setTimeout(() => {
+            renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject);
+        }, 0);
+    }
 }
+
+// ==================== PERFORMANS MERKEZİ CHART & TAB HELPERS ====================
+
+export function renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject) {
+    if (typeof window === 'undefined') return;
+    const ChartClass = window.Chart || (typeof Chart !== 'undefined' ? Chart : null);
+    if (!ChartClass) return;
+
+    if (perfTab === 'homework') {
+        const hwCanvas = document.getElementById('guidanceHomeworkNetChart');
+        if (hwCanvas && hwFilteredSeries && hwFilteredSeries.length > 0) {
+            if (window._guidanceHwChartInstance) {
+                window._guidanceHwChartInstance.destroy();
+                window._guidanceHwChartInstance = null;
+            }
+            const ctx = hwCanvas.getContext('2d');
+            window._guidanceHwChartInstance = new ChartClass(ctx, {
+                type: 'line',
+                data: {
+                    labels: hwFilteredSeries.map(r => r.formattedDate || r.date || r.title),
+                    datasets: [{
+                        label: 'Ödev Neti',
+                        data: hwFilteredSeries.map(r => r.net),
+                        borderColor: '#4F46E5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.08)',
+                        borderWidth: 2.5,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#4F46E5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const item = hwFilteredSeries[context.dataIndex];
+                                    return `Net: ${item.net.toFixed(2)} (D: ${item.correct}, Y: ${item.wrong})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(156, 163, 175, 0.15)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    } else if (perfTab === 'exams') {
+        const examCanvas = document.getElementById('guidanceExamTotalNetChart');
+        if (examCanvas && examFilteredSeries && examFilteredSeries.length > 0) {
+            if (window._guidanceExamChartInstance) {
+                window._guidanceExamChartInstance.destroy();
+                window._guidanceExamChartInstance = null;
+            }
+            const ctx = examCanvas.getContext('2d');
+            window._guidanceExamChartInstance = new ChartClass(ctx, {
+                type: 'line',
+                data: {
+                    labels: examFilteredSeries.map(e => e.name || e.formattedDate),
+                    datasets: [{
+                        label: 'Toplam Net',
+                        data: examFilteredSeries.map(e => e.totalNet),
+                        borderColor: '#4F46E5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.08)',
+                        borderWidth: 2.5,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#4F46E5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const item = examFilteredSeries[context.dataIndex];
+                                    return `Toplam Net: ${item.totalNet.toFixed(2)} (D: ${item.totalDogru}, Y: ${item.totalYanlis}, B: ${item.totalBos})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(156, 163, 175, 0.15)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        const subjectCanvas = document.getElementById('guidanceExamSubjectChart');
+        const subjectSeries = examInsights?.subjectTrendSeries?.[selectedExamSubject] || [];
+        if (subjectCanvas && subjectSeries.length > 0) {
+            if (window._guidanceExamSubjectChartInstance) {
+                window._guidanceExamSubjectChartInstance.destroy();
+                window._guidanceExamSubjectChartInstance = null;
+            }
+            const subMeta = LGS_SUBJECTS.find(s => s.key === selectedExamSubject) || { color: '#4F46E5', name: selectedExamSubject };
+            const ctx = subjectCanvas.getContext('2d');
+            window._guidanceExamSubjectChartInstance = new ChartClass(ctx, {
+                type: 'line',
+                data: {
+                    labels: subjectSeries.map(e => e.examName || e.formattedDate),
+                    datasets: [{
+                        label: `${subMeta.name} Neti`,
+                        data: subjectSeries.map(e => e.net),
+                        borderColor: subMeta.color || '#4F46E5',
+                        backgroundColor: `${subMeta.color || '#4F46E5'}1A`,
+                        borderWidth: 2.5,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: subMeta.color || '#4F46E5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const item = subjectSeries[context.dataIndex];
+                                    return `${subMeta.name}: ${item.net.toFixed(2)} net (D: ${item.dogru}, Y: ${item.yanlis}, B: ${item.bos})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(156, 163, 175, 0.15)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+export function switchGuidancePerformanceTab(studentId, tab) {
+    window._guidancePerformanceTab = tab;
+    renderGuidanceStudentDetail(studentId);
+}
+
+export function setGuidanceHomeworkRange(studentId, range) {
+    window._guidanceHwRange = range;
+    renderGuidanceStudentDetail(studentId);
+}
+
+export function setGuidanceExamRange(studentId, range) {
+    window._guidanceExamRange = range;
+    renderGuidanceStudentDetail(studentId);
+}
+
+export function setGuidanceExamSubject(studentId, subjectKey) {
+    window._guidanceExamSelectedSubject = subjectKey;
+    renderGuidanceStudentDetail(studentId);
+}
+
 
 // ==================== GUIDANCE RECORDS MODAL DIALOGS ====================
 
@@ -2017,3 +2626,7 @@ window.openGuidanceReportModal = openGuidanceReportModal;
 window.downloadGuidanceReportPdf = downloadGuidanceReportPdf;
 window.shareGuidanceReportPdf = shareGuidanceReportPdf;
 window.printGuidanceReportPdf = printGuidanceReportPdf;
+window.switchGuidancePerformanceTab = switchGuidancePerformanceTab;
+window.setGuidanceHomeworkRange = setGuidanceHomeworkRange;
+window.setGuidanceExamRange = setGuidanceExamRange;
+window.setGuidanceExamSubject = setGuidanceExamSubject;
