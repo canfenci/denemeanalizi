@@ -403,12 +403,12 @@ export function renderGuidancePage(options = {}) {
                 `).join('')}
             </section>
 
-            <!-- Segmented Control Tabs (Karar Merkezi vs Takip Takvimi vs Haftalık Özet) -->
+            <!-- Segmented Control Tabs (Genel Bakış vs Takip Takvimi vs Haftalık Özet) -->
             <div class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 mt-4 mb-3 overflow-x-auto">
-                <button onclick="updateGuidanceFilters({tab:'decision'})" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${currentTab === 'decision' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
-                    <i class="fas fa-brain"></i> Karar Merkezi
+                <button onclick="updateGuidanceFilters({tab:'decision'})" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${currentTab === 'decision' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                    <i class="fas fa-brain"></i> Genel Bakış
                 </button>
-                <button onclick="updateGuidanceFilters({tab:'agenda'})" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${currentTab === 'agenda' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <button onclick="updateGuidanceFilters({tab:'agenda'})" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${currentTab === 'agenda' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
                     <i class="fas fa-calendar-check"></i> Takip Takvimi
                     ${(followUpMetrics.todayCount + followUpMetrics.overdueCount) > 0 ? `
                         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
@@ -416,7 +416,7 @@ export function renderGuidancePage(options = {}) {
                         </span>
                     ` : ''}
                 </button>
-                <button onclick="updateGuidanceFilters({tab:'weekly'})" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${currentTab === 'weekly' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <button onclick="updateGuidanceFilters({tab:'weekly'})" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${currentTab === 'weekly' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
                     <i class="fas fa-chart-pie"></i> Haftalık Özet
                 </button>
             </div>
@@ -1619,8 +1619,479 @@ export function renderGuidanceStudentDetail(studentId) {
         </section>
     `;
 
+    const studentTab = window._guidanceStudentTab || 'overview';
+
+    const detailTabs = [
+        ['overview', 'fa-id-card', 'Genel Bakış'],
+        ['performance', 'fa-chart-line', 'Performans'],
+        ['interventions', 'fa-clipboard-list', 'Müdahaleler', detail.openGuidanceRecordsCount || 0],
+        ['study', 'fa-compass', 'Çalışma Planı'],
+        ['report', 'fa-file-pdf', 'Rapor']
+    ];
+
+    const studentTabsHtml = `
+        <nav class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 mt-4 mb-4 overflow-x-auto" aria-label="Öğrenci Rehberlik Sekmeleri">
+            ${detailTabs.map(([key, icon, label, badgeCount]) => {
+                const isActive = studentTab === key;
+                return `
+                    <button onclick="switchGuidanceStudentTab('${studentId}', '${key}')"
+                            class="py-2.5 px-4 text-sm font-bold border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${isActive ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-black' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                        <i class="fas ${icon} text-xs"></i>
+                        <span>${label}</span>
+                        ${badgeCount > 0 ? `
+                            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}">
+                                ${badgeCount}
+                            </span>
+                        ` : ''}
+                    </button>
+                `;
+            }).join('')}
+        </nav>
+    `;
+
+    let tabBodyHtml = '';
+
+    if (studentTab === 'overview') {
+        tabBodyHtml = `
+            <!-- ==================== GENEL BAKIŞ ==================== -->
+            <div class="space-y-4">
+                <!-- Akademik Durum Özeti Box -->
+                <section class="app-panel p-4 bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50">
+                    <div class="flex items-start gap-2.5">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xs shrink-0 mt-0.5">
+                            <i class="fas fa-chart-pie"></i>
+                        </span>
+                        <div>
+                            <p class="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300">Akademik Durum Özeti</p>
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">
+                                ${escapeHtml(detail.mainProblemSummary)}
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4 Kompakt Üst Metrik -->
+                <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    ${topMetrics.map(([icon, label, value, detailText]) => `
+                        <article class="app-panel p-4">
+                            <div class="flex items-center gap-2 text-gray-400">
+                                <i class="fas ${icon} text-xs"></i>
+                                <p class="text-[11px] font-black uppercase tracking-[.08em]">${label}</p>
+                            </div>
+                            <p class="mt-3 text-2xl font-black text-slate-900 dark:text-white">${value}</p>
+                            <p class="mt-1 text-xs text-gray-500 truncate">${detailText}</p>
+                        </article>
+                    `).join('')}
+                </section>
+
+                <!-- 3 Sütunlu Hızlı Durum ve Yönlendirme Kartları -->
+                <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Kart 1: Akademik & Performans Özeti -->
+                    <article class="app-panel p-5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">
+                                        <i class="fas fa-chart-line"></i>
+                                    </span>
+                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Akademik Performans</h3>
+                                </div>
+                                ${detail.examTrend ? `
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-black border ${detail.examTrend.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (detail.examTrend.trend === 'declining' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-700 border-gray-200')}">
+                                        ${escapeHtml(detail.examTrend.label)}
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+                                    <span class="text-gray-500">Son Deneme:</span>
+                                    <span class="font-bold text-gray-900 dark:text-white">${detail.recentExams.length ? `${escapeHtml(detail.recentExams[0].name)} (${detail.recentExams[0].net.toFixed(2)} Net)` : '—'}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+                                    <span class="text-gray-500">Ödev Disiplini:</span>
+                                    <span class="font-bold text-gray-900 dark:text-white">${detail.discipline ? `%${detail.discipline.completionRate} (${detail.discipline.completed}/${detail.discipline.total})` : '—'}</span>
+                                </div>
+                                <div class="flex justify-between py-1">
+                                    <span class="text-gray-500">Baskın Hata:</span>
+                                    <span class="font-bold text-gray-900 dark:text-white">${detail.dominantError ? escapeHtml(detail.dominantError.label) : '—'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="switchGuidanceStudentTab('${studentId}', 'performance')" class="cf-btn-primary w-full py-2.5 px-3 text-xs font-bold min-h-[44px] flex items-center justify-center gap-1.5 mt-4">
+                            <i class="fas fa-chart-line"></i> Performansı Gör
+                        </button>
+                    </article>
+
+                    <!-- Kart 2: Müdahale & Takip Durumu -->
+                    <article class="app-panel p-5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs">
+                                        <i class="fas fa-clipboard-list"></i>
+                                    </span>
+                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Rehberlik & Takip</h3>
+                                </div>
+                                ${detail.dueGuidanceRecordsCount > 0 ? `
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300">
+                                        ${detail.dueGuidanceRecordsCount} Takipte
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+                                    <span class="text-gray-500">Açık Kayıtlar:</span>
+                                    <span class="font-bold text-gray-900 dark:text-white">${detail.openGuidanceRecordsCount || 0} adet</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+                                    <span class="text-gray-500">Takip Durumu:</span>
+                                    <span class="font-bold ${detail.dueGuidanceRecordsCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">${detail.dueGuidanceRecordsCount > 0 ? 'Geciken / Bekleyen Takip Var' : 'Takipler Güncel'}</span>
+                                </div>
+                                <div class="py-1">
+                                    <span class="text-gray-500 block mb-0.5">Son Müdahale:</span>
+                                    <p class="font-semibold text-gray-800 dark:text-gray-200 truncate">${guidanceRecords.length ? escapeHtml(guidanceRecords[0].action || guidanceRecords[0].issue) : 'Kayıt bulunmuyor'}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="switchGuidanceStudentTab('${studentId}', 'interventions')" class="btn-secondary w-full py-2.5 px-3 text-xs font-bold min-h-[44px] flex items-center justify-center gap-1.5 mt-4">
+                            <i class="fas fa-clipboard-list"></i> Müdahaleleri Gör
+                        </button>
+                    </article>
+
+                    <!-- Kart 3: Çalışma Planı & Gelişim -->
+                    <article class="app-panel p-5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs">
+                                        <i class="fas fa-compass"></i>
+                                    </span>
+                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Çalışma Planı</h3>
+                                </div>
+                                ${impact.status === 'measured' ? `
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-black border ${impactBadgeStyles[impact.impactStatus] || impactBadgeStyles.neutral}">
+                                        ${escapeHtml(impact.impactLabel)}
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+                                    <span class="text-gray-500">Plan Durumu:</span>
+                                    <span class="font-bold text-gray-900 dark:text-white">${detail.activePlan ? `${escapeHtml(detail.activePlan.subject)} (Aktif)` : (impact.status === 'measured' ? 'Ölçüldü' : 'Plan Yok')}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800">
+                                    <span class="text-gray-500">Son Net Etkisi:</span>
+                                    <span class="font-bold ${impact.status === 'measured' ? (impact.delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') : 'text-gray-500'}">${impact.status === 'measured' ? `${impact.delta >= 0 ? `+${impact.delta.toFixed(2)}` : impact.delta.toFixed(2)} Net` : '—'}</span>
+                                </div>
+                                <div class="flex justify-between py-1">
+                                    <span class="text-gray-500">Son Birebir Ders:</span>
+                                    <span class="font-bold text-gray-900 dark:text-white truncate">${detail.recentLessons.length ? escapeHtml(detail.recentLessons[0].konu) : '—'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="switchGuidanceStudentTab('${studentId}', 'study')" class="btn-secondary w-full py-2.5 px-3 text-xs font-bold min-h-[44px] flex items-center justify-center gap-1.5 mt-4">
+                            <i class="fas fa-compass"></i> Çalışma Planını Aç
+                        </button>
+                    </article>
+                </section>
+
+                <!-- Önerilen İlk Müdahale Eylem Planı (Karar Destek) -->
+                <article class="app-panel p-5 space-y-3 bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-200/60 dark:border-indigo-900/50">
+                    <div class="flex items-center justify-between border-b border-indigo-100 dark:border-indigo-900/60 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">
+                                <i class="fas fa-lightbulb"></i>
+                            </span>
+                            <div>
+                                <p class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Karar Destek</p>
+                                <h3 class="font-black text-base text-gray-900 dark:text-white">Önerilen Müdahale</h3>
+                            </div>
+                        </div>
+                        <span class="text-xs font-black text-indigo-700 dark:text-indigo-300">
+                            ${escapeHtml(detail.recommendation.title)}
+                        </span>
+                    </div>
+                    <p class="text-xs font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
+                        ${escapeHtml(detail.recommendation.action)}
+                    </p>
+                    <div class="flex items-center gap-2 pt-2">
+                        <button onclick="showGuidanceRecordModal('${studentId}')" class="btn-primary py-2 px-4 text-xs font-bold min-h-[44px] inline-flex items-center gap-1.5">
+                            <i class="fas fa-clipboard-list"></i> Rehberlik Kaydı Ekle
+                        </button>
+                        <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary py-2 px-4 text-xs font-bold min-h-[44px] inline-flex items-center gap-1.5">
+                            <i class="fas fa-compass"></i> Çalışma Planı Oluştur
+                        </button>
+                    </div>
+                </article>
+            </div>
+        `;
+    } else if (studentTab === 'performance') {
+        tabBodyHtml = `
+            <!-- ==================== PERFORMANS ==================== -->
+            <div class="space-y-4">
+                <!-- Performans Merkezi (Ödev & Okul Denemeleri) -->
+                ${performanceCenterHtml}
+
+                <!-- Alt 2 Kolon: Deneme Eğilimi & Zayıf Alanlar / Hata Nedenleri -->
+                <section class="grid gap-4 lg:grid-cols-2 mt-4">
+                    <!-- Sol Kolon: Deneme Eğilimi & Son Sınavlar -->
+                    <article class="app-panel p-5 space-y-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                            <h3 class="font-black text-base text-gray-900 dark:text-white">Deneme Eğilimi</h3>
+                            ${detail.examTrend ? `
+                                <span class="px-2.5 py-1 rounded-full text-xs font-black border ${detail.examTrend.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (detail.examTrend.trend === 'declining' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-700 border-gray-200')}">
+                                    ${escapeHtml(detail.examTrend.label)} (${detail.examTrend.delta >= 0 ? `+${detail.examTrend.delta.toFixed(2)}` : detail.examTrend.delta.toFixed(2)} net)
+                                </span>
+                            ` : '<span class="text-xs text-gray-400 font-medium">Yeterli deneme yok</span>'}
+                        </div>
+                        <div class="space-y-2">
+                            ${detail.recentExams.length ? detail.recentExams.map(e => `
+                                <div class="flex items-center justify-between text-xs p-2.5 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
+                                    <span class="font-bold text-gray-800 dark:text-gray-200">${escapeHtml(e.name)}</span>
+                                    <div class="flex items-center gap-3">
+                                        <time class="text-gray-400">${escapeHtml(e.formattedDate)}</time>
+                                        <span class="font-black text-blue-600 dark:text-blue-400">${e.net.toFixed(2)} Net</span>
+                                    </div>
+                                </div>
+                            `).join('') : '<p class="text-xs text-gray-400 py-2">Genel deneme kaydı bulunamadı.</p>'}
+                        </div>
+                    </article>
+
+                    <!-- Sağ Kolon: Hata Türleri & Zayıf Konular -->
+                    <div class="space-y-4">
+                        <!-- Hata Nedenleri Dağılımı -->
+                        <article class="app-panel p-5 space-y-3">
+                            <h3 class="font-black text-base text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3">
+                                Hata Türleri Dağılımı
+                            </h3>
+                            <div class="space-y-2.5">
+                                ${errorReasonsHtml}
+                            </div>
+                        </article>
+
+                        <!-- Tekrarlayan Zayıf Konular -->
+                        <article class="app-panel p-5 space-y-3">
+                            <h3 class="font-black text-base text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3">
+                                Tekrarlayan Zayıf Alanlar
+                            </h3>
+                            <div class="space-y-2">
+                                ${weakTopicsHtml}
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (studentTab === 'interventions') {
+        tabBodyHtml = `
+            <!-- ==================== MÜDAHALELER ==================== -->
+            <div class="space-y-4">
+                <section class="grid gap-4 lg:grid-cols-3">
+                    <!-- Sol 2 Kolon: Rehberlik Günlüğü ve Müdahale Kayıtları -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <article class="app-panel p-5 space-y-3.5">
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-black text-base text-gray-900 dark:text-white">Rehberlik & Müdahale Kayıtları</h3>
+                                        ${detail.dueGuidanceRecordsCount > 0 ? `
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300">
+                                                ${detail.dueGuidanceRecordsCount} Takip Bekliyor
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-0.5">Öğretmen gözlem, müdahale ve takip geçmişi</p>
+                                </div>
+                                <button onclick="showGuidanceRecordModal('${studentId}')" class="btn-primary px-3.5 py-2 text-xs font-bold min-h-[44px] flex items-center gap-1.5">
+                                    <i class="fas fa-plus"></i> Kayıt Ekle
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                ${guidanceRecordsHtml}
+                            </div>
+                        </article>
+                    </div>
+
+                    <!-- Sağ 1 Kolon: Önerilen Müdahale + Zaman Çizelgesi -->
+                    <div class="space-y-4">
+                        <article class="app-panel p-5 space-y-3 bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-200/60 dark:border-indigo-900/50">
+                            <div class="flex items-center justify-between border-b border-indigo-100 dark:border-indigo-900/60 pb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">
+                                        <i class="fas fa-lightbulb"></i>
+                                    </span>
+                                    <h3 class="font-black text-sm text-gray-900 dark:text-white">Önerilen Müdahale</h3>
+                                </div>
+                            </div>
+                            <div class="space-y-2 text-xs">
+                                <span class="font-black text-indigo-700 dark:text-indigo-300 block">
+                                    ${escapeHtml(detail.recommendation.title)}
+                                </span>
+                                <p class="font-medium text-gray-800 dark:text-gray-200 leading-relaxed">
+                                    ${escapeHtml(detail.recommendation.action)}
+                                </p>
+                            </div>
+                        </article>
+
+                        <article class="app-panel p-5 space-y-3">
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                                <h3 class="font-black text-base text-gray-900 dark:text-white">Öğrenci Zaman Çizelgesi</h3>
+                                <span class="text-xs font-bold text-gray-400">${detail.timeline.length} hareket</span>
+                            </div>
+                            <div class="pt-1">
+                                ${timelineHtml}
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (studentTab === 'study') {
+        tabBodyHtml = `
+            <!-- ==================== ÇALIŞMA PLANI ==================== -->
+            <div class="space-y-4">
+                <section class="grid gap-4 lg:grid-cols-2">
+                    <!-- Sol Kolon: Çalışma Planı Etki Analizi & Aktif Plan -->
+                    <div class="space-y-4">
+                        <article class="app-panel p-5 space-y-3">
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                                <div>
+                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Çalışma Planı Etki Analizi</h3>
+                                    <p class="text-xs text-gray-500 mt-0.5">Çalışma programı sonrası ölçülen net değişimi</p>
+                                </div>
+                                <button onclick="showStudyPlanSetup('${studentId}')" class="btn-primary px-3.5 py-2 text-xs font-bold min-h-[44px] flex items-center gap-1.5">
+                                    <i class="fas fa-compass"></i> Plan Oluştur
+                                </button>
+                            </div>
+                            <div>
+                                ${impactSectionHtml}
+                            </div>
+                        </article>
+
+                        ${detail.activePlan ? `
+                            <article class="app-panel p-5 space-y-3">
+                                <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                                    <div>
+                                        <h3 class="font-black text-base text-gray-900 dark:text-white">Aktif Çalışma Planı</h3>
+                                        <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(detail.activePlan.subject)} · ${detail.activePlan.durationWeeks || 1} haftalık</p>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <button onclick="exportStudyPlanToPdf('${studentId}')" class="btn-secondary min-h-[38px] px-3 text-xs font-bold" title="PDF İndir">
+                                            <i class="fas fa-file-pdf text-emerald-600 mr-1"></i> PDF
+                                        </button>
+                                        <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary min-h-[38px] px-3 text-xs font-bold">
+                                            Düzenle
+                                        </button>
+                                    </div>
+                                </div>
+                            </article>
+                        ` : ''}
+                    </div>
+
+                    <!-- Sağ Kolon: Son Birebir Dersler & Kokpit -->
+                    <div class="space-y-4">
+                        <article class="app-panel p-5 space-y-3">
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                                <h3 class="font-black text-base text-gray-900 dark:text-white">İlgili Birebir Dersler</h3>
+                                <span class="text-xs font-bold text-gray-400">${detail.recentLessons.length} ders</span>
+                            </div>
+                            <div class="space-y-2">
+                                ${recentLessonsHtml}
+                            </div>
+                        </article>
+
+                        <article class="app-panel p-5 space-y-3">
+                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                                <h3 class="font-black text-base text-gray-900 dark:text-white">Detaylı Öğrenci Kokpiti</h3>
+                                <i class="fas fa-chart-line text-blue-600 dark:text-blue-400"></i>
+                            </div>
+                            <p class="text-xs text-gray-500 leading-relaxed">Haftalık soru hedefleri, deneme grafikleri ve tüm öğrenci görevlerini yönetmek için kokpite geçebilirsiniz.</p>
+                            <button onclick="openStudentCockpitDirect('${studentId}')" class="btn-secondary w-full py-2.5 px-3 text-xs font-bold min-h-[44px] flex items-center justify-center gap-1.5">
+                                <i class="fas fa-chart-line mr-1"></i> Öğrenci Kokpitini Aç
+                            </button>
+                        </article>
+                    </div>
+                </section>
+            </div>
+        `;
+    } else if (studentTab === 'report') {
+        tabBodyHtml = `
+            <!-- ==================== RAPOR ==================== -->
+            <div class="space-y-4">
+                <section class="app-panel p-6 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center text-lg shrink-0">
+                                <i class="fas fa-file-pdf"></i>
+                            </span>
+                            <div>
+                                <h3 class="font-black text-lg text-gray-900 dark:text-white">Rehberlik Gelişim Raporu</h3>
+                                <p class="text-xs text-gray-500">Veli görüşmeleri ve dönem sonu değerlendirmeleri için profesyonel PDF dokümanı</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="openGuidanceReportModal('${studentId}')" class="btn-primary min-h-[44px] px-4 text-xs font-bold flex items-center gap-1.5">
+                                <i class="fas fa-sliders mr-1"></i> Raporu Önizle & Yapılandır
+                            </button>
+                            <button onclick="downloadGuidanceReportPdf('${studentId}')" class="btn-secondary min-h-[44px] px-3.5 text-xs font-bold flex items-center gap-1.5">
+                                <i class="fas fa-download mr-1"></i> Hızlı İndir
+                            </button>
+                            <button onclick="printGuidanceReportPdf('${studentId}')" class="btn-secondary min-h-[44px] px-3.5 text-xs font-bold flex items-center gap-1.5">
+                                <i class="fas fa-print mr-1"></i> Yazdır
+                            </button>
+                            <button onclick="shareGuidanceReportPdf('${studentId}')" class="btn-secondary min-h-[44px] px-3.5 text-xs font-bold flex items-center gap-1.5">
+                                <i class="fas fa-share-nodes mr-1"></i> Paylaş
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Raporda Yer Alan Alanlar -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                        <div class="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1">
+                            <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                <i class="fas fa-id-badge"></i>
+                                <span>Öğrenci Profili</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500">Sınıf, hedef okul, net hedefleri ve güncel durum özeti.</p>
+                        </div>
+                        <div class="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1">
+                            <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Akademik Gelişim</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500">LGS okul denemeleri, net trendi, güçlü ve gelişime açık dersler.</p>
+                        </div>
+                        <div class="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1">
+                            <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                                <i class="fas fa-list-check"></i>
+                                <span>Ödev Disiplini & Hatalar</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500">Ödev tamamlama oranı, tekrarlayan zayıf konular ve hata nedenleri.</p>
+                        </div>
+                        <div class="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1">
+                            <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                                <i class="fas fa-clipboard-check"></i>
+                                <span>Müdahale & Öğretmen Notu</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500">Uygulanan rehberlik aksiyonları, takip sonuçları ve veli tavsiyesi.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        `;
+    }
+
     document.getElementById('dynamic-content').innerHTML = `
         <div class="app-page pb-28 sm:pb-8">
+            <!-- Breadcrumb -->
+            <nav class="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2" aria-label="Breadcrumb">
+                <button onclick="renderGuidancePage()" class="hover:text-blue-600 dark:hover:text-blue-400 transition flex items-center gap-1">
+                    <i class="fas fa-compass"></i> Rehberlik
+                </button>
+                <span><i class="fas fa-chevron-right text-[10px] text-gray-400"></i></span>
+                <span class="text-gray-900 dark:text-white font-bold">${escapeHtml(detail.studentName)}</span>
+            </nav>
+
             <!-- Header -->
             <header class="app-page-header">
                 <div class="flex items-start justify-between gap-4 flex-wrap w-full">
@@ -1661,221 +2132,24 @@ export function renderGuidanceStudentDetail(studentId) {
                 </div>
             </header>
 
-            <!-- Akademik Durum Özeti Box -->
-            <section class="app-panel p-4 bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50">
-                <div class="flex items-start gap-2.5">
-                    <span class="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xs shrink-0 mt-0.5">
-                        <i class="fas fa-chart-pie"></i>
-                    </span>
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300">Akademik Durum Özeti</p>
-                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">
-                            ${escapeHtml(detail.mainProblemSummary)}
-                        </p>
-                    </div>
-                </div>
-            </section>
+            <!-- 5 Öğrenci Detay Üst Sekmesi -->
+            ${studentTabsHtml}
 
-            <!-- 4 Kompakt Üst Metrik -->
-            <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-                ${topMetrics.map(([icon, label, value, detailText]) => `
-                    <article class="app-panel p-4">
-                        <div class="flex items-center gap-2 text-gray-400">
-                            <i class="fas ${icon} text-xs"></i>
-                            <p class="text-[11px] font-black uppercase tracking-[.08em]">${label}</p>
-                        </div>
-                        <p class="mt-3 text-2xl font-black text-slate-900 dark:text-white">${value}</p>
-                        <p class="mt-1 text-xs text-gray-500 truncate">${detailText}</p>
-                    </article>
-                `).join('')}
-            </section>
-
-            <!-- Performans Merkezi (Ödev & Okul Denemeleri) -->
-            ${performanceCenterHtml}
-
-            <!-- Ana 2 Kolonlu Blok: Kanıtlar vs Müdahale & Rehberlik Günlüğü -->
-            <section class="grid gap-4 lg:grid-cols-2 mt-4">
-
-                <!-- Sol Kolon: Akademik Kanıtlar -->
-                <div class="space-y-4">
-                    <!-- Deneme Eğilimi & Son Sınavlar -->
-                    <article class="app-panel p-5 space-y-3">
-                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                            <h3 class="font-black text-base text-gray-900 dark:text-white">Deneme Eğilimi</h3>
-                            ${detail.examTrend ? `
-                                <span class="px-2.5 py-1 rounded-full text-xs font-black border ${detail.examTrend.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (detail.examTrend.trend === 'declining' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-700 border-gray-200')}">
-                                    ${escapeHtml(detail.examTrend.label)} (${detail.examTrend.delta >= 0 ? `+${detail.examTrend.delta.toFixed(2)}` : detail.examTrend.delta.toFixed(2)} net)
-                                </span>
-                            ` : '<span class="text-xs text-gray-400 font-medium">Yeterli deneme yok</span>'}
-                        </div>
-                        <div class="space-y-2">
-                            ${detail.recentExams.length ? detail.recentExams.map(e => `
-                                <div class="flex items-center justify-between text-xs p-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
-                                    <span class="font-bold text-gray-800 dark:text-gray-200">${escapeHtml(e.name)}</span>
-                                    <div class="flex items-center gap-3">
-                                        <time class="text-gray-400">${escapeHtml(e.formattedDate)}</time>
-                                        <span class="font-black text-indigo-600 dark:text-indigo-400">${e.net.toFixed(2)} Net</span>
-                                    </div>
-                                </div>
-                            `).join('') : '<p class="text-xs text-gray-400 py-2">Genel deneme kaydı bulunamadı.</p>'}
-                        </div>
-                    </article>
-
-                    <!-- Hata Nedenleri Dağılımı -->
-                    <article class="app-panel p-5 space-y-3">
-                        <h3 class="font-black text-base text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3">
-                            Hata Türleri Dağılımı
-                        </h3>
-                        <div class="space-y-2.5">
-                            ${errorReasonsHtml}
-                        </div>
-                    </article>
-
-                    <!-- Tekrarlayan Zayıf Konular -->
-                    <article class="app-panel p-5 space-y-3">
-                        <h3 class="font-black text-base text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3">
-                            Tekrarlayan Zayıf Alanlar
-                        </h3>
-                        <div class="space-y-2">
-                            ${weakTopicsHtml}
-                        </div>
-                    </article>
-                </div>
-
-                <!-- Sağ Kolon: Müdahale ve Rehberlik Günlüğü -->
-                <div class="space-y-4">
-                    <!-- Önerilen İlk Müdahale Eylem Planı -->
-                    <article class="app-panel p-5 space-y-4 bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-200/60 dark:border-indigo-900/50">
-                        <div class="flex items-center justify-between border-b border-indigo-100 dark:border-indigo-900/60 pb-3">
-                            <div class="flex items-center gap-2">
-                                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">
-                                    <i class="fas fa-lightbulb"></i>
-                                </span>
-                                <div>
-                                    <p class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Karar Destek</p>
-                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Önerilen Müdahale</h3>
-                                </div>
-                            </div>
-                            <span class="text-xs font-black text-indigo-700 dark:text-indigo-300">
-                                ${escapeHtml(detail.recommendation.title)}
-                            </span>
-                        </div>
-                        <div class="space-y-2">
-                            <p class="text-xs font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
-                                ${escapeHtml(detail.recommendation.action)}
-                            </p>
-                            <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1 pt-1">
-                                <li class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-500 text-[10px]"></i> 15–20 dk hedefli kavram / ünite tekrarı</li>
-                                <li class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-500 text-[10px]"></i> Temel ve orta seviye hedefli soru çözümü</li>
-                                <li class="flex items-center gap-1.5"><i class="fas fa-check text-emerald-500 text-[10px]"></i> Süreli mini pekiştirme denemesi</li>
-                            </ul>
-                        </div>
-                        <div class="flex items-center gap-2 pt-1">
-                            <button onclick="showGuidanceRecordModal('${studentId}')" class="btn-primary flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px]">
-                                <i class="fas fa-clipboard-list"></i> Rehberlik Kaydı Ekle
-                            </button>
-                            <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px]">
-                                <i class="fas fa-compass"></i> Çalışma Planı
-                            </button>
-                        </div>
-                    </article>
-
-                    <!-- Rehberlik Günlüğü Bölümü -->
-                    <article class="app-panel p-5 space-y-3.5">
-                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Rehberlik Günlüğü</h3>
-                                    ${detail.dueGuidanceRecordsCount > 0 ? `
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300">
-                                            ${detail.dueGuidanceRecordsCount} Takip Bekliyor
-                                        </span>
-                                    ` : ''}
-                                </div>
-                                <p class="text-xs text-gray-500 mt-0.5">Öğretmen gözlem, müdahale ve takip geçmişi</p>
-                            </div>
-                            <button onclick="showGuidanceRecordModal('${studentId}')" class="btn-secondary px-3 py-1.5 text-xs font-bold min-h-[36px] flex items-center gap-1">
-                                <i class="fas fa-plus text-[10px]"></i> Kayıt Ekle
-                            </button>
-                        </div>
-                        <div class="space-y-3">
-                            ${guidanceRecordsHtml}
-                        </div>
-                    </article>
-
-                    <!-- Çalışma Planı Öncesi / Sonrası Karşılaştırması -->
-                    <article class="app-panel p-5 space-y-3">
-                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                            <div>
-                                <h3 class="font-black text-base text-gray-900 dark:text-white">Çalışma Planı Öncesi / Sonrası</h3>
-                                <p class="text-xs text-gray-500 mt-0.5">Çalışma programı sonrası net değişimi</p>
-                            </div>
-                            <span class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs">
-                                <i class="fas fa-arrows-split-up-and-left"></i>
-                            </span>
-                        </div>
-                        <div>
-                            ${impactSectionHtml}
-                        </div>
-                    </article>
-
-                    <!-- Aktif Çalışma Planı -->
-                    ${detail.activePlan ? `
-                        <article class="app-panel p-5 space-y-3">
-                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                                <div>
-                                    <h3 class="font-black text-base text-gray-900 dark:text-white">Aktif Çalışma Planı</h3>
-                                    <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(detail.activePlan.subject)} · ${detail.activePlan.durationWeeks || 1} haftalık</p>
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <button onclick="exportStudyPlanToPdf('${studentId}')" class="btn-secondary min-h-[38px] px-3 text-xs font-bold" title="PDF İndir">
-                                        <i class="fas fa-file-pdf text-emerald-600 mr-1"></i> PDF
-                                    </button>
-                                    <button onclick="showStudyPlanSetup('${studentId}')" class="btn-secondary min-h-[38px] px-3 text-xs font-bold">
-                                        Düzenle
-                                    </button>
-                                </div>
-                            </div>
-                        </article>
-                    ` : ''}
-                </div>
-            </section>
-
-            <!-- Alt 2 Kolon: Son Dersler & Zaman Çizelgesi -->
-            <section class="grid gap-4 lg:grid-cols-2 mt-4">
-                <!-- Son Ders Kayıtları -->
-                <article class="app-panel p-5 space-y-3">
-                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                        <h3 class="font-black text-base text-gray-900 dark:text-white">Son Ders Kayıtları</h3>
-                        <span class="text-xs font-bold text-gray-400">${detail.recentLessons.length} ders</span>
-                    </div>
-                    <div class="space-y-2">
-                        ${recentLessonsHtml}
-                    </div>
-                </article>
-
-                <!-- Öğrenci Zaman Çizelgesi -->
-                <article class="app-panel p-5 space-y-3">
-                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                        <h3 class="font-black text-base text-gray-900 dark:text-white">Öğrenci Zaman Çizelgesi</h3>
-                        <span class="text-xs font-bold text-gray-400">${detail.timeline.length} hareket</span>
-                    </div>
-                    <div class="pt-1">
-                        ${timelineHtml}
-                    </div>
-                </article>
-            </section>
+            <!-- Aktif Sekme İçeriği -->
+            ${tabBodyHtml}
         </div>
     `;
 
-    if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => {
-            renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject);
-        });
-    } else {
-        setTimeout(() => {
-            renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject);
-        }, 0);
+    if (studentTab === 'performance') {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+                renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject);
+            });
+        } else {
+            setTimeout(() => {
+                renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSeries, examFilteredSeries, examInsights, selectedExamSubject);
+            }, 0);
+        }
     }
 }
 
@@ -2044,22 +2318,31 @@ export function renderGuidancePerformanceCharts(studentId, perfTab, hwFilteredSe
     }
 }
 
+export function switchGuidanceStudentTab(studentId, tabKey) {
+    window._guidanceStudentTab = tabKey || 'overview';
+    renderGuidanceStudentDetail(studentId);
+}
+
 export function switchGuidancePerformanceTab(studentId, tab) {
+    window._guidanceStudentTab = 'performance';
     window._guidancePerformanceTab = tab;
     renderGuidanceStudentDetail(studentId);
 }
 
 export function setGuidanceHomeworkRange(studentId, range) {
+    window._guidanceStudentTab = 'performance';
     window._guidanceHwRange = range;
     renderGuidanceStudentDetail(studentId);
 }
 
 export function setGuidanceExamRange(studentId, range) {
+    window._guidanceStudentTab = 'performance';
     window._guidanceExamRange = range;
     renderGuidanceStudentDetail(studentId);
 }
 
 export function setGuidanceExamSubject(studentId, subjectKey) {
+    window._guidanceStudentTab = 'performance';
     window._guidanceExamSelectedSubject = subjectKey;
     renderGuidanceStudentDetail(studentId);
 }
@@ -2383,6 +2666,7 @@ export function filterGuidanceStudents(query) {
 }
 
 export function openGuidanceStudent(studentId) {
+    window._guidanceStudentTab = 'overview';
     renderGuidanceStudentDetail(studentId);
 }
 
@@ -2650,6 +2934,7 @@ window.openGuidanceReportModal = openGuidanceReportModal;
 window.downloadGuidanceReportPdf = downloadGuidanceReportPdf;
 window.shareGuidanceReportPdf = shareGuidanceReportPdf;
 window.printGuidanceReportPdf = printGuidanceReportPdf;
+window.switchGuidanceStudentTab = switchGuidanceStudentTab;
 window.switchGuidancePerformanceTab = switchGuidancePerformanceTab;
 window.setGuidanceHomeworkRange = setGuidanceHomeworkRange;
 window.setGuidanceExamRange = setGuidanceExamRange;
