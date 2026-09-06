@@ -1831,55 +1831,6 @@ export function renderGuidanceStudentDetail(studentId) {
             <div class="space-y-4">
                 <!-- Performans Merkezi (Ödev & Okul Denemeleri) -->
                 ${performanceCenterHtml}
-
-                <!-- Alt 2 Kolon: Deneme Eğilimi & Zayıf Alanlar / Hata Nedenleri -->
-                <section class="grid gap-4 lg:grid-cols-2 mt-4">
-                    <!-- Sol Kolon: Deneme Eğilimi & Son Sınavlar -->
-                    <article class="app-panel p-5 space-y-3">
-                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                            <h3 class="font-black text-base text-gray-900 dark:text-white">Deneme Eğilimi</h3>
-                            ${detail.examTrend ? `
-                                <span class="px-2.5 py-1 rounded-full text-xs font-black border ${detail.examTrend.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (detail.examTrend.trend === 'declining' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-700 border-gray-200')}">
-                                    ${escapeHtml(detail.examTrend.label)} (${detail.examTrend.delta >= 0 ? `+${detail.examTrend.delta.toFixed(2)}` : detail.examTrend.delta.toFixed(2)} net)
-                                </span>
-                            ` : '<span class="text-xs text-gray-400 font-medium">Yeterli deneme yok</span>'}
-                        </div>
-                        <div class="space-y-2">
-                            ${detail.recentExams.length ? detail.recentExams.map(e => `
-                                <div class="flex items-center justify-between text-xs p-2.5 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
-                                    <span class="font-bold text-gray-800 dark:text-gray-200">${escapeHtml(e.name)}</span>
-                                    <div class="flex items-center gap-3">
-                                        <time class="text-gray-400">${escapeHtml(e.formattedDate)}</time>
-                                        <span class="font-black text-blue-600 dark:text-blue-400">${e.net.toFixed(2)} Net</span>
-                                    </div>
-                                </div>
-                            `).join('') : '<p class="text-xs text-gray-400 py-2">Genel deneme kaydı bulunamadı.</p>'}
-                        </div>
-                    </article>
-
-                    <!-- Sağ Kolon: Hata Türleri & Zayıf Konular -->
-                    <div class="space-y-4">
-                        <!-- Hata Nedenleri Dağılımı -->
-                        <article class="app-panel p-5 space-y-3">
-                            <h3 class="font-black text-base text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3">
-                                Hata Türleri Dağılımı
-                            </h3>
-                            <div class="space-y-2.5">
-                                ${errorReasonsHtml}
-                            </div>
-                        </article>
-
-                        <!-- Tekrarlayan Zayıf Konular -->
-                        <article class="app-panel p-5 space-y-3">
-                            <h3 class="font-black text-base text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3">
-                                Tekrarlayan Zayıf Alanlar
-                            </h3>
-                            <div class="space-y-2">
-                                ${weakTopicsHtml}
-                            </div>
-                        </article>
-                    </div>
-                </section>
             </div>
         `;
     } else if (studentTab === 'interventions') {
