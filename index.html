@@ -251,18 +251,28 @@
         .btn-secondary:hover { background: var(--brand-soft) !important; }
         body.dark .btn-secondary { background: #1E293B !important; color: #A5B4FC !important; border-color: #4338CA !important; }
         .app-modal-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15,23,42,.58); backdrop-filter: blur(3px); }
-        .app-modal { width: 100%; max-height: min(90vh, calc(100dvh - 2rem)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: 1rem; box-shadow: 0 24px 60px rgba(15,23,42,.24); }
+        .app-modal, .app-modal-card { width: 100%; max-height: min(90vh, calc(100dvh - 2rem)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: 1rem; box-shadow: 0 24px 60px rgba(15,23,42,.24); }
         .app-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); }
         .app-modal-body { padding: 1.25rem; }
+        .app-modal-actions { display: flex; flex-direction: column-reverse; gap: 0.75rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-subtle); background-color: var(--cf-surface-muted, #F8FAFC); border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem; }
+        @media (min-width: 640px) { .app-modal-actions { flex-direction: row; justify-content: flex-end; } }
+        body.dark .app-modal-actions { border-color: #243048; background-color: #101728; }
         .app-modal-close { min-width: 2.75rem; min-height: 2.75rem; border-radius: .75rem; color: var(--text-secondary); }
         .app-modal-close:hover { background: var(--brand-soft); color: var(--brand-700); }
         .app-segmented { display: flex; gap: .35rem; padding: .3rem; border-radius: .85rem; background: #F1F5F9; }
         .app-segmented button { flex: 1; min-height: 2.75rem; padding: .5rem .75rem; border-radius: .65rem; color: #64748B; font-weight: 750; }
         .app-segmented button.is-active { background: #FFFFFF; color: var(--brand-700); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
-        body.dark .app-modal { background: #1E293B; border-color: #334155; }
+        body.dark .app-modal, body.dark .app-modal-card { background: #1E293B; border-color: #334155; }
         body.dark .app-modal-header { border-color: #334155; }
         body.dark .app-segmented { background: #0F172A; }
         body.dark .app-segmented button.is-active { background: #334155; color: #C7D2FE; }
+        .cf-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.5rem 1.25rem; width: 100%; }
+        .cf-empty-icon, .cf-empty-state-icon { width: 3.5rem; height: 3.5rem; border-radius: 1rem; background-color: var(--cf-surface-soft, #EEF7FB); color: var(--cf-blue-600, #0B4EA2); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; border: 1px solid var(--cf-border-default, #DCE6F0); }
+        body.dark .cf-empty-icon, body.dark .cf-empty-state-icon { background-color: #1B2640; color: #93C5FD; border-color: #243048; }
+        .cf-empty-title, .cf-empty-state-title { font-size: 1.05rem; font-weight: 800; color: var(--cf-text-primary, #172033); margin-bottom: 0.35rem; font-family: 'Manrope', 'Inter', sans-serif !important; }
+        body.dark .cf-empty-title, body.dark .cf-empty-state-title { color: #F8FAFC; }
+        .cf-empty-desc, .cf-empty-state-description { font-size: 0.875rem; color: var(--cf-text-secondary, #64748B); max-width: 24rem; margin-bottom: 1.25rem; line-height: 1.5; }
+        body.dark .cf-empty-desc, body.dark .cf-empty-state-description { color: #94A3B8; }
         .status-success { color: var(--success) !important; }
         .status-warning { color: var(--warning) !important; }
         .status-pill { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .3rem .65rem; font-size: .75rem; font-weight: 800; border: 1px solid transparent; }
@@ -295,7 +305,7 @@
             display: flex;
             align-items: center;
             gap: 0.75rem !important;
-            width: 105%;
+            width: 100%;
             padding: 0.75rem 1rem !important;
             border-radius: 0.75rem;
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -494,9 +504,7 @@
             transition: transform 0.2s ease-in-out;
         }
         body.dark .mobile-nav-btn::after {
-            background-color: rgba(255,255,255,.96);
-            border-top: 1px solid var(--border-subtle);
-            backdrop-filter: blur(14px);
+            background-color: var(--cf-orange-500, #FF9F1C);
         }
         body.dark .mobile-nav-bar { background-color: rgba(15,23,42,.96); border-color: #334155; }
         .mobile-nav-btn.active::after {
@@ -545,14 +553,14 @@
         .btn-primary { border-radius: .625rem; font-weight: 700; box-shadow: 0 1px 2px rgba(44,59,112,.2), 0 5px 14px rgba(44,59,112,.12); }
         .btn-primary:hover { box-shadow: 0 2px 4px rgba(44,59,112,.2), 0 8px 20px rgba(44,59,112,.16); transform: translateY(-1px); }
         .btn-secondary { border-radius: .625rem; color: var(--brand-700) !important; border-color: #C9D0E3 !important; box-shadow: 0 1px 2px rgba(16,24,40,.03); }
-        .app-modal { border-radius: 1rem; box-shadow: 0 30px 80px rgba(15,23,42,.28); }
+        .app-modal, .app-modal-card { border-radius: 1rem; box-shadow: 0 30px 80px rgba(15,23,42,.28); }
         .app-data-table th { background: #F5F6F9; color: #778195; font-weight: 700; }
         .mobile-nav-bar { background: rgba(255,255,255,.94) !important; border-color: #DDE2EA !important; box-shadow: 0 -10px 30px rgba(15,23,42,.06) !important; }
         .mobile-nav-btn.active, .mobile-nav-btn.active i { color: var(--cf-blue-600, #0B4EA2) !important; }
         .mobile-nav-btn::after { background-color: var(--cf-orange-500, #FF9F1C); }
         body.dark { background: #0C1120 !important; color: #E8ECF4 !important; }
         body.dark .app-sidebar { background: #042447 !important; }
-        body.dark .app-panel, body.dark .app-modal { background: #151D31; border-color: #243048; }
+        body.dark .app-panel, body.dark .app-modal, body.dark .app-modal-card { background: #151D31; border-color: #243048; }
         body.dark .student-form-input, body.dark .modal-input, body.dark select.modal-input { background: #141B2A !important; border-color: #344057 !important; }
         body.dark .mobile-nav-bar { background: rgba(16,21,34,.96) !important; border-color: #293246 !important; }
 
@@ -1101,19 +1109,23 @@
                 <i class="fas fa-home text-xl"></i>
                 <span>Ana</span>
             </button>
-            <button onclick="renderHomeScreen()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-sm font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-home">
+            <button onclick="renderHomeScreen()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-home">
                 <i class="fas fa-users text-xl"></i>
                 <span>Öğrenciler</span>
             </button>
-            <button onclick="renderSchedulePage()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-sm font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-schedule">
+            <button onclick="renderGuidancePage()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-guidance">
+                <i class="fas fa-compass text-xl"></i>
+                <span>Rehberlik</span>
+            </button>
+            <button onclick="renderSchedulePage()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-schedule">
                 <i class="fas fa-calendar-alt text-xl"></i>
                 <span>Program</span>
             </button>
-            <button onclick="renderOdevTakibi()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-sm font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-homework">
+            <button onclick="renderOdevTakibi()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-homework">
                 <i class="fas fa-tasks text-xl"></i>
                 <span>Ödevler</span>
             </button>
-            <button onclick="renderDersKayitlari()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-sm font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-lessons">
+            <button onclick="renderDersKayitlari()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-lessons">
                 <i class="fas fa-book-open text-xl"></i>
                 <span>Kayıtlar</span>
             </button>
@@ -1158,7 +1170,7 @@
                     <span>✨ Yeni bir sürüm mevcut!</span>
                     <button onclick="window.location.reload(true)" class="bg-white text-blue-600 px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors">Yenile</button>
                 </div>
-                <div id="pwaInstallBanner" class="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-gradient-to-r from-primary to-secondary text-white p-4 rounded-2xl shadow-2xl hidden flex flex-col gap-2">
+                <div id="pwaInstallBanner" class="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-[#06366F] border border-white/15 text-white p-4 rounded-2xl shadow-2xl hidden flex flex-col gap-2">
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-2">
                             <img src="icons/icon-192x192.png" class="w-10 h-10 rounded-xl bg-white p-1" alt="Canfenci">
@@ -1171,7 +1183,7 @@
                     </div>
                     <div class="flex gap-2 justify-end mt-1">
                         <button onclick="dismissPWAInstall()" class="px-3 py-1.5 text-xs font-medium text-white/90 hover:text-white">Daha Sonra</button>
-                        <button onclick="triggerPWAInstall()" class="px-4 py-1.5 bg-white text-primary rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors">Yükle</button>
+                        <button onclick="triggerPWAInstall()" class="px-4 py-1.5 bg-[#FF9F1C] text-slate-950 rounded-lg text-xs font-bold hover:bg-[#F29415] transition-colors">Yükle</button>
                     </div>
                 </div>
                 <div id="syncStatus" class="fixed bottom-4 right-4 z-50 bg-gray-800 text-white px-3 py-1 rounded-full text-xs shadow-lg hidden"></div>

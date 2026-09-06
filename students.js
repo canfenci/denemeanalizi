@@ -48,24 +48,29 @@ export function renderHomeScreen() {
     
     const filterHtml = `
         <div class="flex gap-2 mb-4 flex-wrap">
-            <button onclick="setFilter('all')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.activeFilter === 'all' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Tümü</button>
-            <button onclick="setFilter('5')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.activeFilter === '5' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">5. Sınıf</button>
-            <button onclick="setFilter('6')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.activeFilter === '6' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">6. Sınıf</button>
-            <button onclick="setFilter('7')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.activeFilter === '7' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">7. Sınıf</button>
-            <button onclick="setFilter('8')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.activeFilter === '8' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">8. Sınıf</button>
+            <button onclick="setFilter('all')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === 'all' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Tümü</button>
+            <button onclick="setFilter('5')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '5' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">5. Sınıf</button>
+            <button onclick="setFilter('6')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '6' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">6. Sınıf</button>
+            <button onclick="setFilter('7')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '7' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">7. Sınıf</button>
+            <button onclick="setFilter('8')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '8' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">8. Sınıf</button>
         </div>
     `;
     
     const sortHtml = `
         <div class="flex gap-2 mb-4 flex-wrap">
-            <button onclick="setSortOrder('default')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'default' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Varsayılan</button>
-            <button onclick="setSortOrder('net-desc')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'net-desc' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Ort.Net (Yüksek↓)</button>
-            <button onclick="setSortOrder('net-asc')" class="px-4 py-2.5 rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'net-asc' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Ort.Net (Düşük↑)</button>
+            <button onclick="setSortOrder('default')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'default' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Varsayılan</button>
+            <button onclick="setSortOrder('net-desc')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'net-desc' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Ort.Net (Yüksek↓)</button>
+            <button onclick="setSortOrder('net-asc')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'net-asc' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Ort.Net (Düşük↑)</button>
         </div>
     `;
     
     const studentsHtml = sorted.length === 0 
-        ? '<div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center text-gray-500">Kayıtlı öğrenci bulunmuyor.</div>' 
+        ? `<div class="app-panel col-span-full cf-empty-state">
+            <div class="cf-empty-icon"><i class="fas fa-users"></i></div>
+            <h3 class="cf-empty-title">Kayıtlı Öğrenci Bulunmuyor</h3>
+            <p class="cf-empty-desc">Sisteme ilk öğrencinizi ekleyerek deneme analizleri, ödev takibi ve rehberlik planlamalarını başlatabilirsiniz.</p>
+            <button onclick="showAddStudentModal()" class="cf-btn-primary min-h-[44px]"><i class="fas fa-plus mr-1"></i> Yeni Öğrenci Ekle</button>
+        </div>`
         : sorted.map(s => {
             const sinifGoster = s.sinif ? `${s.sinif}. Sınıf` : "Sınıf belirtilmemiş";
             
@@ -1946,33 +1951,33 @@ export function renderReminderHome() {
                             </div>
                         </div>
                         <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
-                            <button onclick="editStudent('${s.id}')" class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1.5 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center transition" title="Düzenle" aria-label="Öğrenciyi düzenle"><i class="fas fa-pen text-xs"></i></button>
-                            <button onclick="deleteStudent('${s.id}')" class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center transition" title="Sil" aria-label="Öğrenciyi sil"><i class="fas fa-trash text-xs"></i></button>
+                            <button onclick="editStudent('${s.id}')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center transition" title="Düzenle" aria-label="Öğrenciyi düzenle"><i class="fas fa-pen text-sm"></i></button>
+                            <button onclick="deleteStudent('${s.id}')" class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center transition" title="Sil" aria-label="Öğrenciyi sil"><i class="fas fa-trash text-sm"></i></button>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-4 gap-2 pt-2 border-t border-gray-150/40 dark:border-gray-800 text-center">
                         <div class="cf-stat-box">
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Son Net</div>
+                            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">Son Net</div>
                             <div class="text-sm font-black text-gray-800 dark:text-white mt-0.5">${netText}</div>
                         </div>
                         <div class="cf-stat-box">
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Hedef</div>
+                            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">Hedef</div>
                             <div class="text-sm font-black text-gray-800 dark:text-white mt-0.5">${targetText}</div>
                         </div>
                         <div class="cf-stat-box">
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Ödev</div>
+                            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">Ödev</div>
                             <div class="text-sm font-black ${summary.activeHwCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-800 dark:text-white'} mt-0.5">${hwText}</div>
                         </div>
                         <div class="cf-stat-box">
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Trend</div>
+                            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">Trend</div>
                             <div class="text-xs font-black mt-0.5 truncate">${trendHtml}</div>
                         </div>
                     </div>
 
                     <div class="flex items-center justify-between text-xs font-bold text-blue-600 dark:text-blue-400 pt-1">
                         <span><i class="fas fa-chart-line mr-1"></i> Öğrenci Kokpiti</span>
-                        <i class="fas fa-arrow-right text-[10px]"></i>
+                        <i class="fas fa-arrow-right text-xs"></i>
                     </div>
                 </div>
             `;
@@ -1988,9 +1993,9 @@ export function renderReminderHome() {
                 <div class="flex items-center gap-2">
                     <div class="relative w-full md:w-64">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                        <input type="text" id="dashboardStudentSearch" oninput="filterDashboardStudents(this.value)" placeholder="Öğrenci ara..." class="cf-input pl-8 py-1.5 text-xs w-full min-h-[36px]">
+                        <input type="text" id="dashboardStudentSearch" oninput="filterDashboardStudents(this.value)" placeholder="Öğrenci ara..." class="cf-input pl-8 py-1.5 text-xs w-full min-h-[44px]">
                     </div>
-                    <button onclick="showAddStudentModal()" class="cf-btn-primary py-1.5 px-3 text-xs min-h-[36px] whitespace-nowrap"><i class="fas fa-plus text-[10px]"></i> Ekle</button>
+                    <button onclick="showAddStudentModal()" class="cf-btn-primary py-2 px-3.5 text-xs min-h-[44px] whitespace-nowrap"><i class="fas fa-plus mr-1"></i> Ekle</button>
                 </div>
             </div>
 

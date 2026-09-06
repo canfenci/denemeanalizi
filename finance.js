@@ -100,21 +100,21 @@ export function renderFinanceReport() {
             </div>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-center">
-                    <span class="text-xs text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider">Aktif Ücretli Öğrenci</span>
-                    <div class="text-2xl font-black text-blue-700 dark:text-blue-300 mt-1">${activeFeeStudentsCount} / ${students.length}</div>
+                <div class="cf-card p-4 text-center">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Aktif Ücretli Öğrenci</span>
+                    <div class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">${activeFeeStudentsCount} / ${students.length}</div>
                 </div>
-                <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/20 text-center">
-                    <span class="text-xs text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Yapılan Toplam Ders</span>
-                    <div class="text-2xl font-black text-indigo-700 dark:text-indigo-300 mt-1">${totalCompletedLessons + totalPendingLessons} Saat</div>
+                <div class="cf-card p-4 text-center">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Yapılan Toplam Ders</span>
+                    <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">${totalCompletedLessons + totalPendingLessons} Saat</div>
                 </div>
-                <div class="bg-green-50 dark:bg-green-900/10 p-4 rounded-2xl border border-green-100 dark:border-green-900/20 text-center">
-                    <span class="text-xs text-green-500 dark:text-green-400 font-bold uppercase tracking-wider">Tahsil Edilen Toplam Tutar</span>
-                    <div class="text-2xl font-black text-green-700 dark:text-green-300 mt-1">${totalRevenueCollected} TL</div>
+                <div class="cf-card p-4 text-center">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Tahsil Edilen Toplam Tutar</span>
+                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${totalRevenueCollected} TL</div>
                 </div>
-                <div class="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-2xl border border-yellow-100 dark:border-yellow-900/20 text-center">
-                    <span class="text-xs text-yellow-500 dark:text-yellow-400 font-bold uppercase tracking-wider">Ödeme Bekleyen Tutar</span>
-                    <div class="text-2xl font-black text-yellow-700 dark:text-yellow-300 mt-1">${totalPendingRevenue} TL</div>
+                <div class="cf-card p-4 text-center">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Ödeme Bekleyen Tutar</span>
+                    <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">${totalPendingRevenue} TL</div>
                 </div>
             </div>
             
@@ -147,7 +147,15 @@ export function renderDersKayitlari() {
     updateMobileNavActive('mobile-nav-lessons');
     const students = loadStudentsData();
     if (students.length === 0) {
-        document.getElementById("dynamic-content").innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center text-gray-500">Henüz öğrenci eklenmemiş. Lütfen önce öğrenci ekleyin.</div>`;
+        document.getElementById("dynamic-content").innerHTML = `
+            <div class="app-page">
+                <div class="app-panel cf-empty-state">
+                    <div class="cf-empty-icon"><i class="fas fa-book-open"></i></div>
+                    <h3 class="cf-empty-title">Henüz Öğrenci Kaydı Bulunmuyor</h3>
+                    <p class="cf-empty-desc">Ders kayıtlarını yönetmek ve ücret takibini yapmak için önce öğrenci ekleyin.</p>
+                    <button onclick="showAddStudentModal()" class="cf-btn-primary min-h-[44px]"><i class="fas fa-plus mr-1"></i> Öğrenci Ekle</button>
+                </div>
+            </div>`;
         return;
     }
     
@@ -436,14 +444,14 @@ export function renderDersDetay(studentId, origin = 'list') {
                 <div id="mobile-detail-${k.id}" class="mobile-lesson-detail hidden pt-2.5 border-t border-gray-150 dark:border-gray-700 space-y-2.5 text-xs" onclick="event.stopPropagation()">
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-[11px] font-bold text-gray-500 block mb-1" for="mobile-attendance-${k.id}">Katılım</label>
-                            <select id="mobile-attendance-${k.id}" onchange="updateDersKatilimDurumu('${studentId}', '${k.id}', this.value)" class="student-form-input min-h-[38px] text-xs">
+                            <label class="text-xs font-bold text-gray-500 block mb-1" for="mobile-attendance-${k.id}">Katılım</label>
+                            <select id="mobile-attendance-${k.id}" onchange="updateDersKatilimDurumu('${studentId}', '${k.id}', this.value)" class="student-form-input min-h-[44px] text-xs">
                                 ${Object.entries(ATTENDANCE_LABELS).map(([value, label]) => `<option value="${value}" ${katilimDurumu === value ? 'selected' : ''}>${label}</option>`).join('')}
                             </select>
                         </div>
                         <div>
-                            <label class="text-[11px] font-bold text-gray-500 block mb-1" for="mobile-payment-${k.id}">Ücret</label>
-                            <select id="mobile-payment-${k.id}" onchange="updateDersUcretDurumu('${studentId}', '${k.id}', this.value)" ${katilimDurumu !== 'yapildi' ? 'disabled' : ''} class="student-form-input min-h-[38px] text-xs">
+                            <label class="text-xs font-bold text-gray-500 block mb-1" for="mobile-payment-${k.id}">Ücret</label>
+                            <select id="mobile-payment-${k.id}" onchange="updateDersUcretDurumu('${studentId}', '${k.id}', this.value)" ${katilimDurumu !== 'yapildi' ? 'disabled' : ''} class="student-form-input min-h-[44px] text-xs">
                                 ${katilimDurumu !== 'yapildi' ? '<option value="not-billable">Ücret Yok</option>' : `<option value="pending" ${!k.odendi ? 'selected' : ''}>Bekliyor</option><option value="paid" ${k.odendi ? 'selected' : ''}>Ödendi</option>`}
                             </select>
                         </div>
@@ -451,9 +459,9 @@ export function renderDersDetay(studentId, origin = 'list') {
                     ${k.icerik ? `<div class="bg-gray-50 dark:bg-gray-900/40 p-2.5 rounded-lg border text-gray-700 dark:text-gray-300"><strong>İçerik:</strong> ${escapeHtml(k.icerik)}</div>` : ''}
                     <div class="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-2.5 border">${homeworkSummary}${legacyHomeworkHtml}</div>
                     <div class="flex gap-2 pt-1">
-                        <button onclick="openHomeworkForLesson('${studentId}', '${k.id}')" class="btn-secondary flex-1 min-h-[38px] text-xs"><i class="fas fa-tasks mr-1"></i> Ödev</button>
-                        <button onclick="toggleDersKayitEditor('${k.id}')" class="btn-secondary flex-1 min-h-[38px] text-xs"><i class="fas fa-edit mr-1"></i> Düzenle</button>
-                        <button onclick="deleteDersKayit('${studentId}', ${k.dersNo})" class="min-w-[38px] min-h-[38px] rounded-xl border border-red-200 text-red-500 text-xs flex items-center justify-center" aria-label="Ders kaydını sil"><i class="fas fa-trash"></i></button>
+                        <button onclick="openHomeworkForLesson('${studentId}', '${k.id}')" class="btn-secondary flex-1 min-h-[44px] text-xs"><i class="fas fa-tasks mr-1"></i> Ödev</button>
+                        <button onclick="toggleDersKayitEditor('${k.id}')" class="btn-secondary flex-1 min-h-[44px] text-xs"><i class="fas fa-edit mr-1"></i> Düzenle</button>
+                        <button onclick="deleteDersKayit('${studentId}', ${k.dersNo})" class="min-w-[44px] min-h-[44px] rounded-xl border border-red-200 text-red-500 text-sm flex items-center justify-center" aria-label="Ders kaydını sil"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
             </article>`;

@@ -1306,9 +1306,9 @@ export function renderGuidanceStudentDetail(studentId) {
                         <p class="text-[11px] text-gray-500">Tamamlanan ödevlerdeki net değişimi</p>
                     </div>
                     <div class="inline-flex p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-bold">
-                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'last5')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${hwRange === 'last5' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 5</button>
-                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'last10')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${hwRange === 'last10' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 10</button>
-                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'all')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${hwRange === 'all' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Tümü</button>
+                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'last5')" class="px-3 py-1.5 min-h-[40px] rounded-md transition-colors ${hwRange === 'last5' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Son 5</button>
+                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'last10')" class="px-3 py-1.5 min-h-[40px] rounded-md transition-colors ${hwRange === 'last10' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Son 10</button>
+                        <button onclick="setGuidanceHomeworkRange('${studentId}', 'all')" class="px-3 py-1.5 min-h-[40px] rounded-md transition-colors ${hwRange === 'all' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Tümü</button>
                     </div>
                 </div>
                 <div class="relative w-full h-56">
@@ -1455,9 +1455,9 @@ export function renderGuidanceStudentDetail(studentId) {
                         <p class="text-[11px] text-gray-500">LGS genel denemelerindeki toplam 90 soru üzerinden gelişim</p>
                     </div>
                     <div class="inline-flex p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-bold">
-                        <button onclick="setGuidanceExamRange('${studentId}', 'last5')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${examRange === 'last5' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 5</button>
-                        <button onclick="setGuidanceExamRange('${studentId}', 'last10')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${examRange === 'last10' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Son 10</button>
-                        <button onclick="setGuidanceExamRange('${studentId}', 'all')" class="px-2.5 py-1 min-h-[36px] rounded-md transition-colors ${examRange === 'all' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-gray-500 hover:text-gray-800'}">Tümü</button>
+                        <button onclick="setGuidanceExamRange('${studentId}', 'last5')" class="px-3 py-1.5 min-h-[40px] rounded-md transition-colors ${examRange === 'last5' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Son 5</button>
+                        <button onclick="setGuidanceExamRange('${studentId}', 'last10')" class="px-3 py-1.5 min-h-[40px] rounded-md transition-colors ${examRange === 'last10' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Son 10</button>
+                        <button onclick="setGuidanceExamRange('${studentId}', 'all')" class="px-3 py-1.5 min-h-[40px] rounded-md transition-colors ${examRange === 'all' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">Tümü</button>
                     </div>
                 </div>
                 <div class="relative w-full h-56">
@@ -1487,9 +1487,9 @@ export function renderGuidanceStudentDetail(studentId) {
                     ` : ''}
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs border-collapse">
+                    <table class="w-full min-w-[620px] text-left text-xs border-collapse">
                         <thead>
-                            <tr class="border-b border-gray-200 dark:border-gray-800 text-gray-400 font-black text-[11px] uppercase">
+                            <tr class="border-b border-gray-200 dark:border-gray-800 text-gray-400 font-bold text-xs uppercase">
                                 <th class="py-2.5 px-3">Ders</th>
                                 <th class="py-2.5 px-3 text-center">Soru</th>
                                 <th class="py-2.5 px-3 text-center">Son Sınav (D / Y / B)</th>
@@ -1515,7 +1515,7 @@ export function renderGuidanceStudentDetail(studentId) {
                                         <span class="text-gray-400">${sub.latestBos} B</span>
                                     ` : '<span class="text-gray-400">—</span>'}
                                 </td>
-                                <td class="py-2.5 px-3 text-center font-black text-indigo-600 dark:text-indigo-400">${sub.hasData && Number.isFinite(sub.latestNet) ? sub.latestNet.toFixed(2) : '—'}</td>
+                                <td class="py-2.5 px-3 text-center font-black text-blue-600 dark:text-blue-400">${sub.hasData && Number.isFinite(sub.latestNet) ? sub.latestNet.toFixed(2) : '—'}</td>
                                 <td class="py-2.5 px-3 text-center font-bold text-gray-800 dark:text-gray-200">${sub.hasData && sub.averageNet !== null && Number.isFinite(sub.averageNet) ? sub.averageNet.toFixed(2) : '—'}</td>
                                 <td class="py-2.5 px-3 text-center">
                                     ${sub.change !== null ? `
@@ -1562,10 +1562,10 @@ export function renderGuidanceStudentDetail(studentId) {
                     <div class="flex items-center gap-1 flex-wrap">
                         ${LGS_SUBJECTS.map(sub => `
                             <button onclick="setGuidanceExamSubject('${studentId}', '${sub.key}')"
-                                    class="px-2.5 py-1 min-h-[36px] text-xs font-bold rounded-lg border transition-colors ${
+                                    class="px-3 py-1.5 min-h-[38px] text-xs font-bold rounded-lg border transition-colors ${
                                         selectedExamSubject === sub.key
-                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
                                     }">
                                 ${sub.shortName}
                             </button>
@@ -1590,7 +1590,7 @@ export function renderGuidanceStudentDetail(studentId) {
         <section class="app-panel p-5 mt-4 space-y-4" id="guidance-performance-center">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
                 <div class="flex items-center gap-2.5">
-                    <span class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">
+                    <span class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm">
                         <i class="fas fa-chart-line"></i>
                     </span>
                     <div>
@@ -1602,12 +1602,12 @@ export function renderGuidanceStudentDetail(studentId) {
                 <!-- 2 Sekmeli Tab Butonları -->
                 <div class="inline-flex p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200/60 dark:border-gray-700/60 text-xs font-bold">
                     <button onclick="switchGuidancePerformanceTab('${studentId}', 'homework')"
-                            class="min-h-[40px] px-4 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${perfTab === 'homework' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
+                            class="min-h-[44px] px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${perfTab === 'homework' ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm font-black' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
                         <i class="fas fa-book-open"></i>
                         <span>Ödev Performansı</span>
                     </button>
                     <button onclick="switchGuidancePerformanceTab('${studentId}', 'exams')"
-                            class="min-h-[40px] px-4 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${perfTab === 'exams' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
+                            class="min-h-[44px] px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${perfTab === 'exams' ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm font-black' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
                         <i class="fas fa-graduation-cap"></i>
                         <span>Okul Denemeleri</span>
                     </button>
@@ -2113,7 +2113,7 @@ export function showGuidanceRecordModal(studentId, recordId = null) {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
     modal.innerHTML = `
-        <div class="app-modal-card max-w-lg w-full space-y-4" onclick="event.stopPropagation()">
+        <div class="app-modal max-w-lg w-full" onclick="event.stopPropagation()">
             <div class="app-modal-header">
                 <div>
                     <h2 class="app-page-title text-lg">${recordId ? 'Rehberlik Kaydını Düzenle' : 'Yeni Rehberlik Kaydı Ekle'}</h2>
@@ -2124,6 +2124,7 @@ export function showGuidanceRecordModal(studentId, recordId = null) {
                 </button>
             </div>
 
+            <div class="app-modal-body">
             <form onsubmit="event.preventDefault(); saveGuidanceRecordForm('${studentId}', ${recordId ? `'${recordId}'` : 'null'})" class="space-y-3.5">
                 <!-- Kayıt Türü -->
                 <div class="space-y-1">
@@ -2175,6 +2176,7 @@ export function showGuidanceRecordModal(studentId, recordId = null) {
                     </button>
                 </div>
             </form>
+            </div>
         </div>
     `;
 
@@ -2259,7 +2261,7 @@ export function showCompleteGuidanceRecordModal(studentId, recordId) {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
     modal.innerHTML = `
-        <div class="app-modal-card max-w-lg w-full space-y-4" onclick="event.stopPropagation()">
+        <div class="app-modal max-w-lg w-full" onclick="event.stopPropagation()">
             <div class="app-modal-header">
                 <div>
                     <h2 class="app-page-title text-lg">Rehberlik Takibini Sonuçlandır</h2>
@@ -2270,6 +2272,7 @@ export function showCompleteGuidanceRecordModal(studentId, recordId) {
                 </button>
             </div>
 
+            <div class="app-modal-body space-y-4">
             <!-- Kayıt Özeti -->
             <div class="p-3.5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200/60 dark:border-gray-800 space-y-1 text-xs">
                 <p class="text-gray-500"><span class="font-bold text-gray-800 dark:text-gray-200">Gözlem:</span> ${escapeHtml(record.issue)}</p>
@@ -2303,6 +2306,7 @@ export function showCompleteGuidanceRecordModal(studentId, recordId) {
                     </button>
                 </div>
             </form>
+            </div>
         </div>
     `;
 
@@ -2409,7 +2413,7 @@ export function openGuidanceReportModal(studentId) {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
     modal.innerHTML = `
-        <div class="app-modal-card max-w-lg w-full space-y-4" onclick="event.stopPropagation()">
+        <div class="app-modal max-w-lg w-full" onclick="event.stopPropagation()">
             <div class="app-modal-header">
                 <div>
                     <h2 class="app-page-title text-lg flex items-center gap-2">
@@ -2422,6 +2426,7 @@ export function openGuidanceReportModal(studentId) {
                 </button>
             </div>
 
+            <div class="app-modal-body">
             <form id="guidanceReportForm" onsubmit="event.preventDefault(); downloadGuidanceReportPdf('${studentId}');" class="space-y-4">
                 <!-- Dönem Seçimi -->
                 <div>
@@ -2497,6 +2502,7 @@ export function openGuidanceReportModal(studentId) {
                     </button>
                 </div>
             </form>
+            </div>
         </div>
     `;
 

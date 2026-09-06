@@ -593,7 +593,13 @@ export function renderStudentOdevDetay(studentId, performanceFilter = 'all') {
                 ` : '<p class="text-sm text-gray-500 text-center py-6">Bu filtrede sonuçlandırılmış çalışma bulunmuyor.</p>'}
             </div>
             <div class="space-y-3 mt-4">
-                ${listRows || '<div class="text-center text-gray-400 p-4">Henüz atanmış ödev bulunmuyor.</div>'}
+                ${listRows || `
+                    <div class="cf-empty-state my-4">
+                        <div class="cf-empty-state-icon"><i class="fas fa-tasks"></i></div>
+                        <div class="cf-empty-state-title">Henüz Atanmış Ödev Bulunmuyor</div>
+                        <div class="cf-empty-state-description">Bu öğrenci veya filtre için henüz ödev kaydı girilmemiş.</div>
+                    </div>
+                `}
             </div>
         </div>
         </div>
@@ -784,7 +790,7 @@ export function showEnterOdevSonucModal(studentId, hwId) {
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
                 <!-- Ünite Seçimi -->
                 <div class="sm:col-span-6">
-                    <label class="text-[11px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">Ünite / Yanlış Yapılan Ana Konu</label>
+                    <label class="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-0.5">Ünite / Yanlış Yapılan Ana Konu</label>
                     <select class="error-unit-select student-form-input text-xs min-h-[38px] py-1.5 font-bold">
                         ${unitOptionsHtml}
                     </select>
@@ -793,7 +799,7 @@ export function showEnterOdevSonucModal(studentId, hwId) {
 
                 <!-- Konu Seçimi -->
                 <div class="sm:col-span-4">
-                    <label class="text-[11px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">Konu / Alt Konu</label>
+                    <label class="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-0.5">Konu / Alt Konu</label>
                     <select class="error-topic-select student-form-input text-xs min-h-[38px] py-1.5">
                         <!-- Populated dynamically -->
                     </select>
@@ -803,10 +809,10 @@ export function showEnterOdevSonucModal(studentId, hwId) {
                 <!-- Yanlış Adedi & Sil Butonu -->
                 <div class="sm:col-span-2 flex items-center gap-1.5">
                     <div class="flex-1">
-                        <label class="text-[11px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">Adet</label>
+                        <label class="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-0.5">Adet</label>
                         <input type="number" min="1" value="${countVal}" class="error-count-input student-form-input text-xs min-h-[38px] py-1.5 text-center font-bold">
                     </div>
-                    <button type="button" class="remove-error-row-btn text-gray-400 hover:text-red-600 p-1.5 mt-4 min-h-[38px] min-w-[34px] inline-flex items-center justify-center transition" title="Bu alanı sil">
+                    <button type="button" class="remove-error-row-btn text-gray-400 hover:text-red-600 p-1.5 mt-4 min-h-[44px] min-w-[44px] inline-flex items-center justify-center transition" title="Bu alanı sil">
                         <i class="fas fa-trash-alt text-xs"></i>
                     </button>
                 </div>
@@ -814,12 +820,12 @@ export function showEnterOdevSonucModal(studentId, hwId) {
 
             <!-- Hata Nedenleri (Çoklu Seçim) -->
             <div>
-                <label class="text-[11px] font-bold text-gray-700 dark:text-gray-300 block mb-1">Hata Nedeni <span class="text-[10px] font-normal text-gray-400">(çoklu seçim)</span></label>
+                <label class="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">Hata Nedeni <span class="text-xs font-normal text-gray-400">(çoklu seçim)</span></label>
                 <div class="flex flex-wrap gap-1.5 error-reasons-group">
                     ${HATA_NEDENLERI.map(hn => {
                         const isChecked = selectedReasonKeys.includes(hn.key);
                         return `
-                            <label class="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition border select-none ${isChecked ? 'bg-blue-600 text-white border-blue-600 shadow-xs' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-200'}">
+                            <label class="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition border select-none min-h-[36px] ${isChecked ? 'bg-blue-600 text-white border-blue-600 shadow-xs' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-200'}">
                                 <input type="checkbox" value="${escapeHtml(hn.key)}" class="hidden error-reason-cb" ${isChecked ? 'checked' : ''}>
                                 <span>${escapeHtml(hn.label)}</span>
                             </label>

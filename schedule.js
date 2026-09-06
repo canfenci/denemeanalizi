@@ -113,7 +113,7 @@ export function renderSchedulePage() {
                         </div>
                         <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between mt-1 pt-1 border-t border-gray-100 dark:border-gray-700/50">
                             <span class="truncate font-medium">${escapeHtml(les.dersAdi)}</span>
-                            ${les.sinif ? `<span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 ml-1 whitespace-nowrap">${escapeHtml(les.sinif)}. Sınıf</span>` : ''}
+                            ${les.sinif ? `<span class="text-xs font-bold text-gray-400 dark:text-gray-500 ml-1 whitespace-nowrap">${escapeHtml(les.sinif)}. Sınıf</span>` : ''}
                         </div>
                     </div>
                 `;
@@ -125,9 +125,9 @@ export function renderSchedulePage() {
                 <div class="flex items-center justify-between p-3 border-b ${isToday ? 'border-blue-100 dark:border-blue-900/50 bg-blue-100/50 dark:bg-blue-900/30 rounded-t-2xl' : 'border-gray-200/80 dark:border-gray-700/60'}">
                     <div class="flex items-center gap-1.5 min-w-0">
                         <span class="font-black text-sm text-gray-850 dark:text-gray-100 truncate">${gun}</span>
-                        ${isToday ? '<span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-600 text-white flex-shrink-0">Bugün</span>' : ''}
+                        ${isToday ? '<span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-600 text-white flex-shrink-0">Bugün</span>' : ''}
                     </div>
-                    <span class="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded-md border border-gray-200/60 dark:border-gray-700/60">${dayLessons.length}</span>
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded-md border border-gray-200/60 dark:border-gray-700/60">${dayLessons.length}</span>
                 </div>
                 <div class="p-2.5 flex-1 flex flex-col gap-2 min-h-[140px]">
                     ${dayCardsHtml}
@@ -145,7 +145,7 @@ export function renderSchedulePage() {
             <button onclick="setScheduleActiveDay('${g}')" class="flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 min-h-[44px] ${isAct ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'}">
                 <span>${g.slice(0, 3)}</span>
                 ${isTod ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>' : ''}
-                ${count > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] ${isAct ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'} font-black">${count}</span>` : ''}
+                ${count > 0 ? `<span class="px-1.5 py-0.5 rounded-full text-xs ${isAct ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'} font-bold">${count}</span>` : ''}
             </button>
         `;
     }).join('');
