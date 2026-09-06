@@ -1,44 +1,59 @@
 // ==================== WORKPLAN & GROWTH TAKIP MODÜLÜ ====================
 
-import { store, loadStudentsData, saveStudentsData, escapeHtml } from './store.js';
+import {
+    store,
+    loadStudentsData,
+    escapeHtml,
+    updateGrowthWeeklyTarget,
+    markGrowthErrorSolved,
+    addGrowthLogAtomic,
+    deleteGrowthLogAtomic,
+    addStudyTaskAtomic,
+    deleteStudyTaskAtomic,
+    replaceStudyPlan
+} from './store.js';
 import { showSyncStatus } from './ui-helpers.js';
 import { STUDY_TECHNIQUES, STUDY_TECHNIQUE_GUIDES, buildAdaptiveStudyPlan, calculateStudyProfile, getStudyBadge } from './study-plan-engine.js';
 
-export function addStudyTask(studentId, gun) {
+export async function addStudyTask(studentId, gun, taskText = null) {
     const input = document.getElementById(`taskInput_${gun}`);
-    const val = input ? input.value.trim() : "";
+    const val = (taskText !== null && taskText !== undefined) ? String(taskText).trim() : (input ? input.value.trim() : "");
     if (!val) return;
-    const students = loadStudentsData();
-    const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx !== -1) {
-        const s = students[sIdx];
-        if (!s.studyPlan) s.studyPlan = {};
-        if (!s.studyPlan[gun]) s.studyPlan[gun] = [];
-        s.studyPlan[gun].push(val);
-        saveStudentsData(students);
-        if (window.renderStudentPanel) {
-            window.renderStudentPanel(studentId).then(() => {
-                if (window.switchStudentTab) window.switchStudentTab('calisma');
-            });
-        }
+    if (input) input.value = "";
+    await addStudyTaskAtomic(studentId, gun, val);
+    if (window.renderStudentPanel) {
+        window.renderStudentPanel(studentId).then(() => {
+            if (window.switchStudentTab) window.switchStudentTab('calisma');
+        });
     }
 }
 
-export function deleteStudyTask(studentId, gun, taskIdx) {
-    if (!confirm("Bu çalışma görevini silmek istediğinize emin misiniz?")) return;
+export async function deleteStudyTask(studentId, gun, taskIdxOrText) {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        if (!confirm("Bu çalışma görevini silmek istediğinize emin misiniz?")) return;
+    }
     const students = loadStudentsData();
-    const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx !== -1) {
-        const s = students[sIdx];
-        if (s.studyPlan && s.studyPlan[gun]) {
-            s.studyPlan[gun].splice(taskIdx, 1);
-            saveStudentsData(students);
-            if (window.renderStudentPanel) {
-                window.renderStudentPanel(studentId).then(() => {
-                    if (window.switchStudentTab) window.switchStudentTab('calisma');
-                });
+    const s = students.find(item => item.id === studentId);
+    let taskText = null;
+    let taskIdx = null;
+    let occurrence = 0;
+    if (typeof taskIdxOrText === 'number') {
+        taskIdx = taskIdxOrText;
+        taskText = s?.studyPlan?.[gun]?.[taskIdx] || null;
+        if (s?.studyPlan?.[gun] && taskText) {
+            for (let i = 0; i < taskIdx; i++) {
+                if (s.studyPlan[gun][i] === taskText) occurrence++;
             }
         }
+    } else if (typeof taskIdxOrText === 'string') {
+        taskText = taskIdxOrText;
+        taskIdx = Array.isArray(s?.studyPlan?.[gun]) ? s.studyPlan[gun].indexOf(taskText) : -1;
+    }
+    await deleteStudyTaskAtomic(studentId, gun, { taskText, taskIdx, occurrence });
+    if (window.renderStudentPanel) {
+        window.renderStudentPanel(studentId).then(() => {
+            if (window.switchStudentTab) window.switchStudentTab('calisma');
+        });
     }
 }
 
@@ -119,7 +134,7 @@ export function createConfiguredStudyPlan(studentId) {
     });
 }
 
-export function autoPopulateStudyPlan(studentId, configuration = {}) {
+export async function autoPopulateStudyPlan(studentId, configuration = {}) {
     const students = loadStudentsData();
     const sIdx = students.findIndex(s => s.id === studentId);
     if (sIdx === -1) return;
@@ -134,9 +149,12 @@ export function autoPopulateStudyPlan(studentId, configuration = {}) {
     const dailyMinutes = configuration.dailyMinutes || 30;
     const durationWeeks = configuration.durationWeeks || 1;
     const badge = getStudyBadge(subject || 'general', stage);
-    student.studyPlan = buildAdaptiveStudyPlan({ subject, stage, intensity, techniques, days, dailyMinutes });
-    student.studyPlanProfile = { mode, subject, stage, intensity, techniques, days, dailyMinutes, durationWeeks, badge, score: profile.score, generatedAt: new Date().toISOString() };
-    saveStudentsData(students);
+    const newStudyPlan = buildAdaptiveStudyPlan({ subject, stage, intensity, techniques, days, dailyMinutes });
+    const newProfile = { mode, subject, stage, intensity, techniques, days, dailyMinutes, durationWeeks, badge, score: profile.score, generatedAt: new Date().toISOString() };
+    await replaceStudyPlan(studentId, {
+        studyPlan: newStudyPlan,
+        studyPlanProfile: newProfile
+    });
     closeStudyPlanSetup();
     showSyncStatus(`🏅 ${badge} programı oluşturuldu`, false);
     if (window.renderStudentPanel) {
@@ -145,6 +163,8 @@ export function autoPopulateStudyPlan(studentId, configuration = {}) {
         });
     }
 }
+export const generateAdaptiveStudyPlan = autoPopulateStudyPlan;
+
 
 export function exportStudyPlanToPdf(studentId) {
     const students = loadStudentsData();
@@ -395,81 +415,87 @@ export function exportStudyPlanToPdf(studentId) {
     }
 }
 
-export function resetStudentError(studentId, errorKey) {
-    const students = loadStudentsData();
-    const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx !== -1) {
-        const s = students[sIdx];
-        if (!s.errorResets) s.errorResets = {};
-        s.errorResets[errorKey] = {
-            status: "solved",
-            solvedAt: new Date().toISOString().split('T')[0]
-        };
-        saveStudentsData(students);
-        if (window.renderStudentPanel) {
-            window.renderStudentPanel(studentId).then(() => {
-                if (window.switchStudentTab) window.switchStudentTab('calisma');
-            });
-        }
+export async function resetStudentError(studentId, errorKey) {
+    await markGrowthErrorSolved(studentId, errorKey);
+    if (window.renderStudentPanel) {
+        window.renderStudentPanel(studentId).then(() => {
+            if (window.switchStudentTab) window.switchStudentTab('calisma');
+        });
     }
 }
+export const markErrorAsSolved = resetStudentError;
 
-export function changeGrowthTarget(studentId, newTarget) {
+export async function changeGrowthTarget(studentId, newTarget) {
     const parsed = parseInt(newTarget);
     if (isNaN(parsed) || parsed <= 0) return;
-    const students = loadStudentsData();
-    const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx !== -1) {
-        const s = students[sIdx];
-        if (!s.growthPlan) s.growthPlan = { weeklyTarget: 500, logs: [] };
-        s.growthPlan.weeklyTarget = parsed;
-        saveStudentsData(students);
-        showSyncStatus("🎯 Hedef başarıyla güncellendi", false);
-    }
+    await updateGrowthWeeklyTarget(studentId, parsed);
+    showSyncStatus("🎯 Hedef başarıyla güncellendi", false);
 }
 
-export function addGrowthLog(studentId) {
-    const dateInput = document.getElementById("growthLogDate");
-    const countInput = document.getElementById("growthLogCount");
-    const date = dateInput ? dateInput.value : "";
-    const count = countInput ? parseInt(countInput.value) : 0;
+export async function addGrowthLog(studentId, logData = null) {
+    let date = "";
+    let count = 0;
+    if (logData && typeof logData === 'object') {
+        date = logData.date;
+        count = parseInt(logData.count);
+    } else {
+        const dateInput = document.getElementById("growthLogDate");
+        const countInput = document.getElementById("growthLogCount");
+        date = dateInput ? dateInput.value : "";
+        count = countInput ? parseInt(countInput.value) : 0;
+    }
     
     if (!date || isNaN(count) || count <= 0) {
-        alert("Geçerli bir tarih ve çözülen soru sayısı giriniz!");
+        if (typeof alert === 'function') {
+            alert("Geçerli bir tarih ve çözülen soru sayısı giriniz!");
+        }
         return;
     }
-    
-    const students = loadStudentsData();
-    const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx !== -1) {
-        const s = students[sIdx];
-        if (!s.growthPlan) s.growthPlan = { weeklyTarget: 500, logs: [] };
-        if (!s.growthPlan.logs) s.growthPlan.logs = [];
-        s.growthPlan.logs.push({ date, count });
-        saveStudentsData(students);
-        if (window.renderStudentPanel) {
-            window.renderStudentPanel(studentId).then(() => {
-                if (window.switchStudentTab) window.switchStudentTab('calisma');
-            });
-        }
+
+    await addGrowthLogAtomic(studentId, { date, count });
+    if (window.renderStudentPanel) {
+        window.renderStudentPanel(studentId).then(() => {
+            if (window.switchStudentTab) window.switchStudentTab('calisma');
+        });
     }
 }
 
-export function deleteGrowthLog(studentId, logIdx) {
-    if (!confirm("Bu soru sayısı kaydını silmek istediğinize emin misiniz?")) return;
+export async function deleteGrowthLog(studentId, logIdxOrIdentifier) {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        if (!confirm("Bu soru sayısı kaydını silmek istediğinize emin misiniz?")) return;
+    }
     const students = loadStudentsData();
-    const sIdx = students.findIndex(s => s.id === studentId);
-    if (sIdx !== -1) {
-        const s = students[sIdx];
-        if (s.growthPlan && s.growthPlan.logs) {
-            s.growthPlan.logs.splice(logIdx, 1);
-            saveStudentsData(students);
-            if (window.renderStudentPanel) {
-                window.renderStudentPanel(studentId).then(() => {
-                    if (window.switchStudentTab) window.switchStudentTab('calisma');
-                });
+    const s = students.find(item => item.id === studentId);
+    let logIdentifier = {};
+    if (typeof logIdxOrIdentifier === 'number') {
+        const targetLog = s?.growthPlan?.logs?.[logIdxOrIdentifier];
+        let occurrence = 0;
+        if (s?.growthPlan?.logs && targetLog) {
+            for (let i = 0; i < logIdxOrIdentifier; i++) {
+                const l = s.growthPlan.logs[i];
+                if (l && l.date === targetLog.date && Number(l.count) === Number(targetLog.count)) {
+                    occurrence++;
+                }
             }
         }
+        logIdentifier = {
+            logId: targetLog?.id,
+            date: targetLog?.date,
+            count: targetLog?.count,
+            index: logIdxOrIdentifier,
+            occurrence
+        };
+    } else if (typeof logIdxOrIdentifier === 'string') {
+        logIdentifier = { logId: logIdxOrIdentifier };
+    } else if (logIdxOrIdentifier && typeof logIdxOrIdentifier === 'object') {
+        logIdentifier = logIdxOrIdentifier;
+    }
+
+    await deleteGrowthLogAtomic(studentId, logIdentifier);
+    if (window.renderStudentPanel) {
+        window.renderStudentPanel(studentId).then(() => {
+            if (window.switchStudentTab) window.switchStudentTab('calisma');
+        });
     }
 }
 
@@ -483,16 +509,20 @@ export function setErrorFilter(filterName) {
 }
 
 // Bind to window for global accessibility
-window.addStudyTask = addStudyTask;
-window.deleteStudyTask = deleteStudyTask;
-window.autoPopulateStudyPlan = autoPopulateStudyPlan;
-window.showStudyPlanSetup = showStudyPlanSetup;
-window.closeStudyPlanSetup = closeStudyPlanSetup;
-window.updateStudyPlanPreview = updateStudyPlanPreview;
-window.createConfiguredStudyPlan = createConfiguredStudyPlan;
-window.exportStudyPlanToPdf = exportStudyPlanToPdf;
-window.resetStudentError = resetStudentError;
-window.changeGrowthTarget = changeGrowthTarget;
-window.addGrowthLog = addGrowthLog;
-window.deleteGrowthLog = deleteGrowthLog;
-window.setErrorFilter = setErrorFilter;
+if (typeof window !== 'undefined') {
+    window.addStudyTask = addStudyTask;
+    window.deleteStudyTask = deleteStudyTask;
+    window.autoPopulateStudyPlan = autoPopulateStudyPlan;
+    window.generateAdaptiveStudyPlan = generateAdaptiveStudyPlan;
+    window.showStudyPlanSetup = showStudyPlanSetup;
+    window.closeStudyPlanSetup = closeStudyPlanSetup;
+    window.updateStudyPlanPreview = updateStudyPlanPreview;
+    window.createConfiguredStudyPlan = createConfiguredStudyPlan;
+    window.exportStudyPlanToPdf = exportStudyPlanToPdf;
+    window.resetStudentError = resetStudentError;
+    window.markErrorAsSolved = markErrorAsSolved;
+    window.changeGrowthTarget = changeGrowthTarget;
+    window.addGrowthLog = addGrowthLog;
+    window.deleteGrowthLog = deleteGrowthLog;
+    window.setErrorFilter = setErrorFilter;
+}
