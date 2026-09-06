@@ -760,23 +760,23 @@ test('Scenario P: Authenticated offline queue does not dual-write cloud user dat
         assert.equal(r2.queued, true);
 
         const r3 = await addGrowthLogAtomic('s1', { date: '2026-09-06', count: 65 });
-        assert.equal(r3.queued, true);
+        assert.equal(r3.blockedOffline, true);
 
         const r4 = await deleteGrowthLogAtomic('s1', { logId: 'l1' });
-        assert.equal(r4.queued, true);
+        assert.equal(r4.blockedOffline, true);
 
         const r5 = await addStudyTaskAtomic('s1', 'Çarşamba', 'Offline Görev');
-        assert.equal(r5.queued, true);
+        assert.equal(r5.blockedOffline, true);
 
         const r6 = await deleteStudyTaskAtomic('s1', 'Çarşamba', { taskText: 'Offline Görev' });
-        assert.equal(r6.queued, true);
+        assert.equal(r6.blockedOffline, true);
 
         const r7 = await replaceStudyPlan('s1', { studyPlan: { Cuma: ['Hafta Sonu Öncesi'] } });
         assert.equal(r7.queued, true);
 
         // Firestore SDK queued writes without contaminating guest localStorage
         assert.equal(setItemCalls, 0, 'Offline cloud mode must not dual-write user data to localStorage');
-        assert.ok(env.docUpdates.length >= 7, 'Offline writes queued into Firestore doc updates');
+        assert.ok(env.docUpdates.length >= 3, 'Offline writes queued into Firestore doc updates');
     } finally {
         env.teardown();
     }

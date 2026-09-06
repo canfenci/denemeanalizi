@@ -1,7 +1,7 @@
 // ==================== EXAM ANALYSIS & MANAGEMENT MODULE ====================
 
 import { db, auth, isFirebaseActive } from './firebase-config.js';
-import { store, loadStudentsData, saveStudentsData, getKonuListesiBySinif, getKonuListesiBySinifAndDers, GENEL_DERSLER_GORUNUM, GENEL_DERSLER_KEY, HATA_KODLARI, POPULER_LISELER, getErrorColor, calculateNet, escapeHtml, loadSchedule, loadDersKayitlari, getStudentOdevler, addStudentArrayRecord, updateStudentArrayRecord, deleteStudentArrayRecord, bulkAddStudentExam } from './store.js';
+import { store, loadStudentsData, saveStudentsData, getKonuListesiBySinif, getKonuListesiBySinifAndDers, GENEL_DERSLER_GORUNUM, GENEL_DERSLER_KEY, HATA_KODLARI, POPULER_LISELER, getErrorColor, calculateNet, escapeHtml, loadSchedule, loadDersKayitlari, getStudentOdevler, addStudentArrayRecord, updateStudentArrayRecord, deleteStudentArrayRecord, bulkAddStudentExam, OFFLINE_BLOCKED_ARRAY_MESSAGE } from './store.js';
 import { showSyncStatus } from './ui-helpers.js';
 import { MANUAL_RESOURCE_VALUE, readResourceSelection, resourceOptionsHtml, toggleManualResource } from './resource-books.js';
 
@@ -366,6 +366,12 @@ export async function saveDenemeAta() {
         alert(`${selectedStudents.length} öğrenciye deneme başarıyla eklendi.`);
     } else {
         const bulkRes = await bulkAddStudentExam(selectedStudents, newExam);
+        const hasOfflineBlocked = Array.isArray(bulkRes.results) && bulkRes.results.some(r => r.blockedOffline);
+        if (hasOfflineBlocked) {
+            const blockedMsg = bulkRes.results.find(r => r.blockedOffline)?.message || OFFLINE_BLOCKED_ARRAY_MESSAGE;
+            alert(blockedMsg);
+            return;
+        }
         if (bulkRes.failedCount > 0) {
             alert(`${bulkRes.successCount}/${bulkRes.totalCount} öğrenciye deneme eklendi. ${bulkRes.failedCount} öğrencide hata oluştu.`);
         } else {
@@ -569,7 +575,11 @@ export async function saveBransExamEdit(studentId, examId) {
     }
     const net = calculateNet(toplamDogru, toplamYanlis);
     const updatedExam = { ...exam, denemeAdi: examName, sorular: updatedSorular, toplamDogru, toplamYanlis, toplamBos, toplamNet: net, toplamSoru: soruSayisi };
-    await updateStudentArrayRecord(studentId, 'denemeler', exam.id, updatedExam);
+    const res = await updateStudentArrayRecord(studentId, 'denemeler', exam.id, updatedExam);
+    if (res && !res.ok && res.blockedOffline) {
+        alert(res.message);
+        return;
+    }
     if (window.renderStudentPanel) window.renderStudentPanel(studentId);
 }
 
@@ -738,7 +748,11 @@ export async function saveGenelExamEdit(studentId, examId) {
         }
     }
     const updatedExam = { ...exam, denemeAdi: examName, sorular: updatedSorular, dersSonuclari: dersSonuclari, toplamDogru, toplamYanlis, toplamBos, toplamNet: net, toplamSoru: exam.toplamSoru };
-    await updateStudentArrayRecord(studentId, 'denemeler', exam.id, updatedExam);
+    const res = await updateStudentArrayRecord(studentId, 'denemeler', exam.id, updatedExam);
+    if (res && !res.ok && res.blockedOffline) {
+        alert(res.message);
+        return;
+    }
     if (window.renderStudentPanel) window.renderStudentPanel(studentId);
 }
 
@@ -795,7 +809,11 @@ export function viewExam(studentId, examId) {
 
 export async function deleteExam(studentId, examId) {
     if (confirm("Bu denemeyi silmek istediğinize emin misiniz?")) {
-        await deleteStudentArrayRecord(studentId, 'denemeler', examId);
+        const res = await deleteStudentArrayRecord(studentId, 'denemeler', examId);
+        if (res && !res.ok && res.blockedOffline) {
+            alert(res.message);
+            return;
+        }
         if (window.renderStudentPanel) window.renderStudentPanel(studentId);
     }
 }

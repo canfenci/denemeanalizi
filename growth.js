@@ -19,8 +19,12 @@ export async function addStudyTask(studentId, gun, taskText = null) {
     const input = document.getElementById(`taskInput_${gun}`);
     const val = (taskText !== null && taskText !== undefined) ? String(taskText).trim() : (input ? input.value.trim() : "");
     if (!val) return;
+    const res = await addStudyTaskAtomic(studentId, gun, val);
+    if (res && !res.ok && res.blockedOffline) {
+        if (typeof alert === 'function') alert(res.message);
+        return;
+    }
     if (input) input.value = "";
-    await addStudyTaskAtomic(studentId, gun, val);
     if (window.renderStudentPanel) {
         window.renderStudentPanel(studentId).then(() => {
             if (window.switchStudentTab) window.switchStudentTab('calisma');
@@ -49,7 +53,11 @@ export async function deleteStudyTask(studentId, gun, taskIdxOrText) {
         taskText = taskIdxOrText;
         taskIdx = Array.isArray(s?.studyPlan?.[gun]) ? s.studyPlan[gun].indexOf(taskText) : -1;
     }
-    await deleteStudyTaskAtomic(studentId, gun, { taskText, taskIdx, occurrence });
+    const res = await deleteStudyTaskAtomic(studentId, gun, { taskText, taskIdx, occurrence });
+    if (res && !res.ok && res.blockedOffline) {
+        if (typeof alert === 'function') alert(res.message);
+        return;
+    }
     if (window.renderStudentPanel) {
         window.renderStudentPanel(studentId).then(() => {
             if (window.switchStudentTab) window.switchStudentTab('calisma');
@@ -452,7 +460,11 @@ export async function addGrowthLog(studentId, logData = null) {
         return;
     }
 
-    await addGrowthLogAtomic(studentId, { date, count });
+    const res = await addGrowthLogAtomic(studentId, { date, count });
+    if (res && !res.ok && res.blockedOffline) {
+        if (typeof alert === 'function') alert(res.message);
+        return;
+    }
     if (window.renderStudentPanel) {
         window.renderStudentPanel(studentId).then(() => {
             if (window.switchStudentTab) window.switchStudentTab('calisma');
@@ -491,7 +503,11 @@ export async function deleteGrowthLog(studentId, logIdxOrIdentifier) {
         logIdentifier = logIdxOrIdentifier;
     }
 
-    await deleteGrowthLogAtomic(studentId, logIdentifier);
+    const res = await deleteGrowthLogAtomic(studentId, logIdentifier);
+    if (res && !res.ok && res.blockedOffline) {
+        if (typeof alert === 'function') alert(res.message);
+        return;
+    }
     if (window.renderStudentPanel) {
         window.renderStudentPanel(studentId).then(() => {
             if (window.switchStudentTab) window.switchStudentTab('calisma');

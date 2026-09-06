@@ -848,6 +848,28 @@ export function applyArrayMutation(currentArray, operation, { record = null, rec
     throw new Error(`Unsupported array operation: "${operation}"`);
 }
 
+export const OFFLINE_BLOCKED_ARRAY_MESSAGE = "Bu işlem çevrimdışıyken güvenli şekilde kaydedilemiyor. İnternet bağlantısı geldiğinde tekrar deneyin.";
+
+export function isRiskyOfflineMutationBlocked() {
+    const isCloud = Boolean(store.useFirestore && window.isFirebaseActive && window.db && !store.isGuestMode);
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    return isCloud && isOffline;
+}
+
+export function assertSafeOfflineMutation() {
+    if (isRiskyOfflineMutationBlocked()) {
+        return {
+            allowed: false,
+            blockedOffline: true,
+            message: OFFLINE_BLOCKED_ARRAY_MESSAGE
+        };
+    }
+    return {
+        allowed: true,
+        blockedOffline: false
+    };
+}
+
 export async function mutateStudentArrayRecord({
     studentId,
     field,
@@ -937,59 +959,21 @@ export async function mutateStudentArrayRecord({
         }
     }
 
-    // 2. Cloud Offline Mode
-    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    if (isOffline) {
-        const storeStudent = (store.globalStudents || []).find(s => s.id === studentId);
-        const currentArray = storeStudent && Array.isArray(storeStudent[field]) ? [...storeStudent[field]] : [];
-        const { nextArray, noop, duplicate, notFound, recordId: effectiveRecordId } = applyArrayMutation(
-            currentArray,
-            operation,
-            { record, recordId, patch, field }
-        );
-
-        if (storeStudent) {
-            storeStudent[field] = nextArray;
-        }
-
-        if (noop) {
-            return {
-                ok: true,
-                mode: 'firestore',
-                queued: false,
-                noop: true,
-                duplicate: Boolean(duplicate),
-                notFound: Boolean(notFound),
-                writeCount: 0,
-                studentId,
-                field,
-                operation,
-                recordId: effectiveRecordId,
-                nextArray
-            };
-        }
-
-        const docRef = window.db.collection("students").doc(studentId);
-        const writePromise = docRef.update({ [field]: nextArray });
-        if (writePromise && typeof writePromise.catch === 'function') {
-            writePromise.catch(err => console.error("Offline array mutation error:", err));
-        }
-
+    // 2. Cloud Offline Guard (TECH-04.5 Policy C: Block high-risk array mutation while offline)
+    const guard = assertSafeOfflineMutation();
+    if (!guard.allowed) {
         if (window.showSyncStatus) {
-            const queuedMsg = resolveSyncStatusMessage({ mode: 'firestore', queued: true });
-            window.showSyncStatus(queuedMsg.text, queuedMsg.isError);
+            window.showSyncStatus(guard.message, true);
         }
-
         return {
-            ok: true,
-            mode: 'firestore',
-            queued: true,
-            writeCount: 1,
+            ok: false,
+            success: false,
+            blockedOffline: true,
+            message: guard.message,
             studentId,
             field,
             operation,
-            recordId: effectiveRecordId,
-            nextArray
+            recordId
         };
     }
 
@@ -1523,45 +1507,24 @@ export async function mutateGrowthLog({
         }
     }
 
-    // 2. Cloud Mode (Firestore)
-    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    const docRef = window.db.collection("students").doc(studentId);
-
-    if (isOffline) {
-        let s = store.globalStudents?.find(item => item.id === studentId);
-        if (!s) throw new Error(`Student ${studentId} not found`);
-        if (!s.growthPlan) s.growthPlan = { weeklyTarget: 500, logs: [] };
-        if (!Array.isArray(s.growthPlan.logs)) s.growthPlan.logs = [];
-
-        let effectiveLogRecord = record;
-        if (operation === 'ARRAY_ADD') {
-            effectiveLogRecord = {
-                id: record.id || ('glog_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)),
-                date: record.date,
-                count: parseInt(record.count) || 0,
-                createdAt: record.createdAt || new Date().toISOString()
-            };
-            if (!s.growthPlan.logs.some(l => l && l.id === effectiveLogRecord.id)) {
-                s.growthPlan.logs.push(effectiveLogRecord);
-            }
-        } else if (operation === 'ARRAY_DELETE_BY_ID') {
-            const deleteIdx = resolveGrowthLogDeleteIndex(s.growthPlan.logs, { recordId, identifier });
-            if (deleteIdx !== -1) {
-                s.growthPlan.logs.splice(deleteIdx, 1);
-            }
-        }
-
-        const nextLogs = [...s.growthPlan.logs];
-        const writePromise = docRef.update({ "growthPlan.logs": nextLogs });
-        if (writePromise && typeof writePromise.catch === 'function') {
-            writePromise.catch(err => console.error("Offline mutateGrowthLog error:", err));
-        }
+    // 2. Cloud Offline Guard (TECH-04.5 Policy C: Block high-risk array mutation while offline)
+    const guard = assertSafeOfflineMutation();
+    if (!guard.allowed) {
         if (window.showSyncStatus) {
-            const queuedMsg = resolveSyncStatusMessage({ mode: 'firestore', queued: true });
-            window.showSyncStatus(queuedMsg.text, queuedMsg.isError);
+            window.showSyncStatus(guard.message, true);
         }
-        return { ok: true, mode: 'firestore', queued: true, studentId, operation, record: effectiveLogRecord };
+        return {
+            ok: false,
+            success: false,
+            blockedOffline: true,
+            message: guard.message,
+            studentId,
+            operation,
+            recordId
+        };
     }
+
+    const docRef = window.db.collection("students").doc(studentId);
 
     // Online: execute transaction
     if (window.showSyncStatus) {
@@ -1685,28 +1648,24 @@ export async function addStudyTaskAtomic(studentId, day, task) {
         }
     }
 
-    // 2. Cloud Mode (Firestore)
-    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    const docRef = window.db.collection("students").doc(studentId);
-
-    if (isOffline) {
-        let s = store.globalStudents?.find(item => item.id === studentId);
-        if (!s) throw new Error(`Student ${studentId} not found`);
-        if (!s.studyPlan) s.studyPlan = {};
-        if (!Array.isArray(s.studyPlan[day])) s.studyPlan[day] = [];
-        s.studyPlan[day].push(cleanTask);
-
-        const nextTasks = [...s.studyPlan[day]];
-        const writePromise = docRef.update({ [`studyPlan.${day}`]: nextTasks });
-        if (writePromise && typeof writePromise.catch === 'function') {
-            writePromise.catch(err => console.error("Offline addStudyTaskAtomic error:", err));
-        }
+    // 2. Cloud Offline Guard (TECH-04.5 Policy C: Block high-risk array mutation while offline)
+    const guard = assertSafeOfflineMutation();
+    if (!guard.allowed) {
         if (window.showSyncStatus) {
-            const queuedMsg = resolveSyncStatusMessage({ mode: 'firestore', queued: true });
-            window.showSyncStatus(queuedMsg.text, queuedMsg.isError);
+            window.showSyncStatus(guard.message, true);
         }
-        return { ok: true, mode: 'firestore', queued: true, studentId, day, task: cleanTask };
+        return {
+            ok: false,
+            success: false,
+            blockedOffline: true,
+            message: guard.message,
+            studentId,
+            day,
+            task: cleanTask
+        };
     }
+
+    const docRef = window.db.collection("students").doc(studentId);
 
     // Online: execute transaction
     if (window.showSyncStatus) {
@@ -1797,31 +1756,23 @@ export async function deleteStudyTaskAtomic(studentId, day, identifier) {
         }
     }
 
-    // 2. Cloud Mode (Firestore)
-    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    const docRef = window.db.collection("students").doc(studentId);
-
-    if (isOffline) {
-        let s = store.globalStudents?.find(item => item.id === studentId);
-        if (!s) throw new Error(`Student ${studentId} not found`);
-        if (s.studyPlan && Array.isArray(s.studyPlan[day])) {
-            const deleteIdx = resolveStudyTaskDeleteIndex(s.studyPlan[day], identifier);
-            if (deleteIdx !== -1) {
-                s.studyPlan[day].splice(deleteIdx, 1);
-            }
-        }
-
-        const nextTasks = s.studyPlan && Array.isArray(s.studyPlan[day]) ? [...s.studyPlan[day]] : [];
-        const writePromise = docRef.update({ [`studyPlan.${day}`]: nextTasks });
-        if (writePromise && typeof writePromise.catch === 'function') {
-            writePromise.catch(err => console.error("Offline deleteStudyTaskAtomic error:", err));
-        }
+    // 2. Cloud Offline Guard (TECH-04.5 Policy C: Block high-risk array mutation while offline)
+    const guard = assertSafeOfflineMutation();
+    if (!guard.allowed) {
         if (window.showSyncStatus) {
-            const queuedMsg = resolveSyncStatusMessage({ mode: 'firestore', queued: true });
-            window.showSyncStatus(queuedMsg.text, queuedMsg.isError);
+            window.showSyncStatus(guard.message, true);
         }
-        return { ok: true, mode: 'firestore', queued: true, studentId, day };
+        return {
+            ok: false,
+            success: false,
+            blockedOffline: true,
+            message: guard.message,
+            studentId,
+            day
+        };
     }
+
+    const docRef = window.db.collection("students").doc(studentId);
 
     // Online: execute transaction
     if (window.showSyncStatus) {
@@ -2337,4 +2288,7 @@ window.deleteGrowthLogAtomic = deleteGrowthLogAtomic;
 window.addStudyTaskAtomic = addStudyTaskAtomic;
 window.deleteStudyTaskAtomic = deleteStudyTaskAtomic;
 window.replaceStudyPlan = replaceStudyPlan;
+window.OFFLINE_BLOCKED_ARRAY_MESSAGE = OFFLINE_BLOCKED_ARRAY_MESSAGE;
+window.isRiskyOfflineMutationBlocked = isRiskyOfflineMutationBlocked;
+window.assertSafeOfflineMutation = assertSafeOfflineMutation;
 }

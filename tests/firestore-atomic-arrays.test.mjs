@@ -512,7 +512,7 @@ test('TECH-04.3 Scenario N: Unrelated student fields unchanged', async () => {
     assert.equal(doc.veliTel, '05559998877');
 });
 
-test('TECH-04.3 Offline Behavior: queues write and provides TECH-03 feedback', async () => {
+test('TECH-04.3 / TECH-04.5 Offline Behavior: blocks risky array mutation to prevent LWW data loss', async () => {
     const { docUpdates, syncStatusCalls } = setupMockEnvironment({
         onLine: false,
         initialDocs: {
@@ -522,15 +522,12 @@ test('TECH-04.3 Offline Behavior: queues write and provides TECH-03 feedback', a
 
     const res = await addStudentExam('s1', { id: 'ex_off', denemeAdi: 'Offline Deneme' });
 
-    assert.equal(res.ok, true);
-    assert.equal(res.queued, true);
-    assert.equal(docUpdates.length, 1);
-    assert.equal(docUpdates[0].docId, 's1');
-    assert.ok(docUpdates[0].patch.denemeler);
-    assert.equal(docUpdates[0].patch.denemeler.length, 1);
+    assert.equal(res.ok, false);
+    assert.equal(res.blockedOffline, true);
+    assert.equal(docUpdates.length, 0);
 
-    const queuedMsg = syncStatusCalls.find(c => c.msg && c.msg.includes('Çevrimdışı — değişiklikler senkronizasyon için bekliyor'));
-    assert.ok(queuedMsg, 'TECH-03 offline queued message displayed');
+    const blockedMsg = syncStatusCalls.find(c => c.isErr && c.msg.includes('çevrimdışıyken güvenli şekilde kaydedilemiyor'));
+    assert.ok(blockedMsg, 'TECH-04.5 offline blocked message displayed');
 });
 
 test('TECH-04.3 Guest / Local Mode: persists to localStorage without Firestore', async () => {

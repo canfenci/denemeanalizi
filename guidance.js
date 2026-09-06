@@ -2201,23 +2201,33 @@ export async function saveGuidanceRecordForm(studentId, recordId = null) {
     }
 
     if (recordId) {
-        const updatedRecord = updateGuidanceRecord(student, recordId, {
+        const tempStudent = { ...student, guidanceRecords: Array.isArray(student.guidanceRecords) ? [...student.guidanceRecords] : [] };
+        const updatedRecord = updateGuidanceRecord(tempStudent, recordId, {
             type,
             issue: issue.trim(),
             action: action.trim(),
             followUpDate: followUpDate ? followUpDate.slice(0, 10) : null,
             note: note.trim()
         });
-        await updateStudentArrayRecord(studentId, 'guidanceRecords', recordId, updatedRecord);
+        const res = await updateStudentArrayRecord(studentId, 'guidanceRecords', recordId, updatedRecord);
+        if (res && !res.ok && res.blockedOffline) {
+            alert(res.message);
+            return;
+        }
     } else {
-        const newRecord = createGuidanceRecord(student, {
+        const tempStudent = { ...student, guidanceRecords: Array.isArray(student.guidanceRecords) ? [...student.guidanceRecords] : [] };
+        const newRecord = createGuidanceRecord(tempStudent, {
             type,
             issue: issue.trim(),
             action: action.trim(),
             followUpDate: followUpDate ? followUpDate.slice(0, 10) : null,
             note: note.trim()
         });
-        await addStudentArrayRecord(studentId, 'guidanceRecords', newRecord);
+        const res = await addStudentArrayRecord(studentId, 'guidanceRecords', newRecord);
+        if (res && !res.ok && res.blockedOffline) {
+            alert(res.message);
+            return;
+        }
     }
 
     document.getElementById('guidanceRecordModal')?.remove();
@@ -2310,12 +2320,17 @@ export async function saveCompleteGuidanceRecordForm(studentId, recordId) {
     const result = document.getElementById('grCompleteResult')?.value || 'positive';
     const resultNote = document.getElementById('grCompleteResultNote')?.value || '';
 
-    const completedRecord = completeGuidanceRecord(student, recordId, {
+    const tempStudent = { ...student, guidanceRecords: Array.isArray(student.guidanceRecords) ? [...student.guidanceRecords] : [] };
+    const completedRecord = completeGuidanceRecord(tempStudent, recordId, {
         result,
         resultNote: resultNote.trim()
     });
 
-    await updateStudentArrayRecord(studentId, 'guidanceRecords', recordId, completedRecord);
+    const res = await updateStudentArrayRecord(studentId, 'guidanceRecords', recordId, completedRecord);
+    if (res && !res.ok && res.blockedOffline) {
+        alert(res.message);
+        return;
+    }
 
     document.getElementById('completeGuidanceRecordModal')?.remove();
     if (store.currentPage === 'guidance-detail' || window.currentPage === 'guidance-detail') {
@@ -2337,8 +2352,11 @@ export async function confirmDeleteGuidanceRecord(studentId, recordId) {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    deleteGuidanceRecord(student, recordId);
-    await deleteStudentArrayRecord(studentId, 'guidanceRecords', recordId);
+    const res = await deleteStudentArrayRecord(studentId, 'guidanceRecords', recordId);
+    if (res && !res.ok && res.blockedOffline) {
+        alert(res.message);
+        return;
+    }
 
     if (store.currentPage === 'guidance-detail' || window.currentPage === 'guidance-detail') {
         renderGuidanceStudentDetail(studentId);
