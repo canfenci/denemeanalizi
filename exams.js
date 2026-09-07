@@ -106,7 +106,7 @@ export function lgsPuanHesapla(genelDenemeler) {
             }
             let netDin = calculateNet(den.dersSonuclari["Din Kültürü ve Ahlak Bilgisi"]?.dogru || 0, den.dersSonuclari["Din Kültürü ve Ahlak Bilgisi"]?.yanlis || 0);
             let netIng = calculateNet(den.dersSonuclari["Yabancı Dil (İngilizce)"]?.dogru || 0, den.dersSonuclari["Yabancı Dil (İngilizce)"]?.yanlis || 0);
-            
+
             examPuan += (netTur * 4.53) + (netMat * 4.65) + (netFen * 4.12) + (netSos * 1.94) + (netDin * 1.99) + (netIng * 1.69);
         } else {
             examPuan += den.toplamNet * 3.58;
@@ -132,7 +132,7 @@ export function renderDenemeAtaModal(preSelectedStudentId = null) {
             <span class="text-sm font-medium text-gray-805 dark:text-gray-200">${escapeHtml(s.adSoyad)} (${escapeHtml(s.okul)}${s.sinif ? ', ' + s.sinif + '. sınıf' : ''})</span>
         </label>
     `).join('');
-    
+
     const bransHtml = `
         <div id="bransSecim" class="${denemeAtaMode === 'branş' ? '' : 'hidden'}">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -163,7 +163,7 @@ export function renderDenemeAtaModal(preSelectedStudentId = null) {
             </div>
         </div>
     `;
-    
+
     let genelDersHtml = `
         <div id="genelSecim" class="${denemeAtaMode === 'genel' ? '' : 'hidden'}">
             <div class="mb-2 font-bold text-sm text-gray-700 dark:text-gray-300">Ders Bazında Soru Sayıları:</div>
@@ -179,7 +179,7 @@ export function renderDenemeAtaModal(preSelectedStudentId = null) {
         `;
     }
     genelDersHtml += `</div>`;
-    
+
     const modalHtml = `
         <div id="denemeAtaModal" class="app-modal-backdrop" onclick="if(event.target===this) closeDenemeAtaModal()">
             <div class="app-modal max-w-2xl" onclick="event.stopPropagation()">
@@ -207,7 +207,7 @@ export function renderDenemeAtaModal(preSelectedStudentId = null) {
             </div>
         </div>
     `;
-    
+
     const existing = document.getElementById('denemeAtaModal');
     if (existing) existing.remove();
     const modalDiv = document.createElement('div');
@@ -223,7 +223,7 @@ export function renderDenemeAtaModal(preSelectedStudentId = null) {
             window.updateTopicExamOptions?.();
         }
     }
-    
+
     document.getElementById('tabBransBtn').addEventListener('click', () => {
         denemeAtaMode = 'branş';
         document.getElementById('bransSecim').classList.remove('hidden');
@@ -321,7 +321,7 @@ export async function saveDenemeAta() {
         }
         tip = "genel";
     }
-    
+
     const newExam = {
         id: "ex_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
         denemeAdi: examName,
@@ -340,7 +340,7 @@ export async function saveDenemeAta() {
         newExam.konu = sorular[0]?.konuAdi || '';
         newExam.kaynak = readResourceSelection('bransKaynak', 'bransKaynakManual');
     }
-    
+
     if (tip === "genel") {
         newExam.dersBilgileri = [];
         newExam.dersSonuclari = {};
@@ -351,7 +351,7 @@ export async function saveDenemeAta() {
             newExam.dersSonuclari[d] = { dogru: 0, yanlis: 0, bos: dersMap[d] };
         }
     }
-    
+
     const isCloud = Boolean(store.useFirestore && window.isFirebaseActive && window.db && !store.isGuestMode);
     if (!isCloud) {
         const students = loadStudentsData();
@@ -382,119 +382,170 @@ export async function saveDenemeAta() {
     if (window.renderHomeScreen) window.renderHomeScreen();
 }
 
+// Active state for branch exam editing (Fen and non-Fen)
+let activeExamState = null;
+
+export function goToFenHataAnaliziStep(studentId, examId) {
+    if (!activeExamState) return;
+    const nameInput = document.getElementById('editExamName');
+    if (nameInput) activeExamState.denemeAdi = nameInput.value.trim();
+
+    // Read current statuses from DOM into activeExamState
+    activeExamState.sorular.forEach((soru, idx) => {
+        const durumInput = document.querySelector(`.durum-select[data-index="${idx}"]`);
+        if (durumInput) soru.durum = durumInput.value;
+    });
+
+    const wrongAndBlank = activeExamState.sorular.filter(s => s.durum === 'yanlis' || s.durum === 'bos');
+    if (wrongAndBlank.length === 0) {
+        saveBransExamEdit(studentId, examId);
+        return;
+    }
+
+    activeExamState.currentStep = 2;
+    if (window._renderFenStep2) window._renderFenStep2();
+}
+
+export function goToFenStep1(studentId, examId) {
+    if (!activeExamState) return;
+    // Save any selected topics / error codes from Step 2
+    activeExamState.sorular.forEach((soru, idx) => {
+        if (soru.durum === 'yanlis' || soru.durum === 'bos') {
+            const konuSelect = document.querySelector(`.fen-konu-select[data-index="${idx}"]`);
+            const hataSelect = document.querySelector(`.fen-hata-select[data-index="${idx}"]`);
+            if (konuSelect && konuSelect.value) soru.konuAdi = konuSelect.value.trim();
+            if (hataSelect && hataSelect.value) soru.hataKodu = hataSelect.value.trim();
+        }
+    });
+    activeExamState.currentStep = 1;
+    if (window._renderFenStep1) window._renderFenStep1();
+}
+
+export function onFenSelectChange(idx) {
+    const card = document.getElementById(`fen-card-${idx}`);
+    const konuSelect = document.querySelector(`.fen-konu-select[data-index="${idx}"]`);
+    const hataSelect = document.querySelector(`.fen-hata-select[data-index="${idx}"]`);
+    const konu = konuSelect ? konuSelect.value.trim() : "";
+    const hata = hataSelect ? hataSelect.value.trim() : "";
+    if (activeExamState?.sorular?.[idx]) {
+        activeExamState.sorular[idx].konuAdi = konu;
+        activeExamState.sorular[idx].hataKodu = hata || null;
+    }
+    if (card && konu && hata) {
+        card.classList.remove('border-red-500', 'bg-red-50/20', 'dark:bg-red-950/20');
+        const alertBox = document.getElementById('fenValidationAlert');
+        if (alertBox && !document.querySelector('.fen-hata-karti.border-red-500')) {
+            alertBox.classList.add('hidden');
+            alertBox.classList.remove('flex');
+            alertBox.textContent = '';
+        }
+    }
+}
+
+export async function saveFenExamWithAnalysis(studentId, examId) {
+    if (!activeExamState) return;
+    let missingCount = 0;
+    let firstMissingCard = null;
+
+    activeExamState.sorular.forEach((soru, idx) => {
+        if (soru.durum === 'yanlis' || soru.durum === 'bos') {
+            const card = document.getElementById(`fen-card-${idx}`);
+            const konuSelect = document.querySelector(`.fen-konu-select[data-index="${idx}"]`);
+            const hataSelect = document.querySelector(`.fen-hata-select[data-index="${idx}"]`);
+            const konu = konuSelect ? konuSelect.value.trim() : "";
+            const hata = hataSelect ? hataSelect.value.trim() : "";
+
+            if (!konu || !hata) {
+                missingCount++;
+                if (card) {
+                    card.classList.add('border-red-500', 'bg-red-50/20', 'dark:bg-red-950/20');
+                    if (!firstMissingCard) firstMissingCard = card;
+                }
+            } else {
+                if (card) {
+                    card.classList.remove('border-red-500', 'bg-red-50/20', 'dark:bg-red-950/20');
+                }
+                soru.konuAdi = konu;
+                soru.hataKodu = hata;
+            }
+        }
+    });
+
+    const alertBox = document.getElementById('fenValidationAlert');
+    if (missingCount > 0) {
+        const msg = `${missingCount} hata kaydı eksik. Lütfen işaretli sorular için konu ve hata nedenini seçin.`;
+        if (alertBox) {
+            alertBox.textContent = msg;
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('flex');
+        }
+        alert(msg);
+        if (firstMissingCard && typeof firstMissingCard.scrollIntoView === 'function') {
+            firstMissingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+    }
+
+    if (alertBox) {
+        alertBox.classList.add('hidden');
+        alertBox.classList.remove('flex');
+    }
+
+    await saveBransExamEdit(studentId, examId);
+}
+
 export function editBransExam(studentId, examId, exam) {
     const students = loadStudentsData();
     const student = students.find(s => s.id === studentId);
     if (!student) return;
-    const konuList = getKonuListesiBySinif(student.sinif);
-    
-    function renderBransExamForm() {
-        let rows = '';
-        for (let i = 0; i < exam.sorular.length; i++) {
-            const soru = exam.sorular[i];
-            const durum = soru.durum || "bos";
-            const hataKodu = soru.hataKodu || "";
-            const konuAdi = soru.konuAdi || "";
-            const showKonuHata = (durum !== "dogru");
-            
-            rows += `
-                <div class="app-panel p-3 soru-duzenleme-satiri" data-soru-index="${i}">
-                    <div class="font-bold mb-1 text-sm">${i + 1}. Soru</div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-400 mb-1">Durum</label>
-                            <div class="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-650 durum-btn-group" data-index="${i}">
-                                <button type="button" onclick="setQuestionStatus(${i}, 'dogru')" class="flex-grow py-2 text-xs font-bold transition-all ${durum === 'dogru' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-dogru" data-index="${i}">✅ D</button>
-                                <button type="button" onclick="setQuestionStatus(${i}, 'yanlis')" class="flex-grow py-2 text-xs font-bold transition-all ${durum === 'yanlis' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-yanlis" data-index="${i}">❌ Y</button>
-                                <button type="button" onclick="setQuestionStatus(${i}, 'bos')" class="flex-grow py-2 text-xs font-bold transition-all ${durum === 'bos' ? 'bg-gray-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-bos" data-index="${i}">⬜ B</button>
-                                <input type="hidden" class="durum-select" data-index="${i}" value="${durum}">
-                            </div>
-                        </div>
-                        <div class="hata-konu-container" ${!showKonuHata ? 'style="display:none"' : ''}>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-400 mb-1">Yapılamayan Konu</label>
-                                    <select class="student-form-input konu-select min-h-[44px]" data-index="${i}">
-                                        <option value="">-- Seçin --</option>
-                                        ${konuList.map(k => `<option value="${k}" ${konuAdi === k ? 'selected' : ''}>${k}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-400 mb-1">Hata Kodu</label>
-                                    <select class="student-form-input hata-select min-h-[44px]" data-index="${i}">
-                                        <option value="">-- Seçin --</option>
-                                        ${HATA_KODLARI.map(h => `<option value="${h.kod}" ${hataKodu === h.kod ? 'selected' : ''}>${h.kod} - ${h.aciklama}</option>`).join('')}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+
+    const isFenExam = exam.tip === 'branş' && exam.ders === 'Fen Bilimleri';
+    const studentGrade = exam.sinif || student.sinif || '8';
+
+    activeExamState = {
+        studentId,
+        examId,
+        isFenExam,
+        sinif: studentGrade,
+        denemeAdi: exam.denemeAdi || '',
+        currentStep: 1,
+        sorular: (exam.sorular || []).map((s, idx) => ({
+            soruNo: s.soruNo || (idx + 1),
+            durum: s.durum || 'bos',
+            konuAdi: s.konuAdi || (isFenExam ? '' : (exam.konu || '')),
+            hataKodu: s.hataKodu || null
+        }))
+    };
+    window._activeBransState = activeExamState;
+
+    function updateEditFooter() {
+        let totalDogru = 0, totalYanlis = 0, totalBos = 0;
+        const soruSayisi = activeExamState ? activeExamState.sorular.length : (exam.sorular ? exam.sorular.length : 0);
+        for (let i = 0; i < soruSayisi; i++) {
+            const durumSelect = document.querySelector(`.durum-select[data-index="${i}"]`);
+            const durum = durumSelect ? durumSelect.value : (activeExamState?.sorular?.[i]?.durum || 'bos');
+            if (durum === 'dogru') totalDogru++;
+            else if (durum === 'yanlis') totalYanlis++;
+            else totalBos++;
         }
-        
-        const html = `
-            <div class="app-page">
-                <header class="app-page-header"><div><button onclick="renderStudentPanel('${studentId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Öğrenci Dosyasına Dön</button><h2 class="app-page-title">Konu Denemesi Sonucu</h2><p class="app-page-subtitle">${escapeHtml(exam.denemeAdi)} · Soruların durumunu ve hata nedenlerini düzenleyin.</p></div><button onclick="setAllQuestionsCorrect()" class="btn-secondary px-4 py-2.5 text-sm min-h-[44px]"><i class="fas fa-check-double mr-1"></i> Tümünü Doğru İşaretle</button></header>
-                <div class="app-panel p-5">
-                    <label for="editExamName" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Deneme adı</label>
-                    <input id="editExamName" class="student-form-input min-h-[44px] mb-3" placeholder="Deneme Adı" value="${escapeHtml(exam.denemeAdi)}">
-                    <div class="mb-2 text-sm text-gray-500">Her soru için durumu, konusunu ve hata kodunu girin.</div>
-                    <div class="space-y-3 md:max-h-96 md:overflow-auto mb-3">${rows}</div>
-                    <div class="sticky-footer p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl flex justify-between gap-3 flex-wrap font-bold text-sm" id="editFooter">
-                        <span>Toplam: ${exam.toplamSoru} soru · D:${exam.toplamDogru} · Y:${exam.toplamYanlis} · B:${exam.toplamBos}</span>
-                        <span class="text-indigo-600 dark:text-indigo-400">Net: ${exam.toplamNet.toFixed(2)}</span>
-                    </div>
-                    <button onclick="saveBransExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>
-                </div>
-            </div>
-        `;
-        document.getElementById("dynamic-content").innerHTML = html;
-        
-        function updateEditFooter() {
-            let totalDogru = 0, totalYanlis = 0, totalBos = 0;
-            const soruSayisi = exam.sorular.length;
-            for (let i = 0; i < soruSayisi; i++) {
-                const durumSelect = document.querySelector(`.durum-select[data-index="${i}"]`);
-                if (durumSelect) {
-                    const durum = durumSelect.value;
-                    if (durum === 'dogru') totalDogru++;
-                    else if (durum === 'yanlis') totalYanlis++;
-                    else totalBos++;
+        const net = calculateNet(totalDogru, totalYanlis);
+        const footer = document.getElementById('editFooter');
+        if (footer) {
+            footer.innerHTML = `<span>Toplam: ${soruSayisi} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span><span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>`;
+        }
+
+        if (isFenExam) {
+            const ctaContainer = document.getElementById('fenStep1CtaContainer');
+            if (ctaContainer) {
+                if (totalYanlis + totalBos === 0) {
+                    ctaContainer.innerHTML = `<button type="button" id="btnFenStep1Action" onclick="saveBransExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>`;
                 } else {
-                    const soru = exam.sorular[i];
-                    if (soru.durum === 'dogru') totalDogru++;
-                    else if (soru.durum === 'yanlis') totalYanlis++;
-                    else totalBos++;
+                    ctaContainer.innerHTML = `<button type="button" id="btnFenStep1Action" onclick="goToFenHataAnaliziStep('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-arrow-right mr-1"></i> Hata Analizine Devam</button>`;
                 }
             }
-            const net = calculateNet(totalDogru, totalYanlis);
-            const footer = document.getElementById('editFooter');
-            if (footer) footer.innerHTML = `<span>Toplam: ${soruSayisi} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span><span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>`;
         }
-        
-        document.querySelectorAll('.durum-select').forEach(sel => {
-            sel.addEventListener('change', (e) => {
-                const container = sel.closest('.soru-duzenleme-satiri').querySelector('.hata-konu-container');
-                if (sel.value === 'dogru') {
-                    container.style.display = 'none';
-                    const idx = sel.getAttribute('data-index');
-                    const konuSelect = document.querySelector(`.konu-select[data-index="${idx}"]`);
-                    const hataSelect = document.querySelector(`.hata-select[data-index="${idx}"]`);
-                    if (konuSelect) konuSelect.value = "";
-                    if (hataSelect) hataSelect.value = "";
-                } else {
-                    container.style.display = 'block';
-                }
-                updateEditFooter();
-            });
-        });
-        document.querySelectorAll('.konu-select, .hata-select').forEach(sel => {
-            sel.addEventListener('change', () => updateEditFooter());
-        });
-        updateEditFooter();
     }
-    
+
     window.setQuestionStatus = function (index, status) {
         const hiddenInput = document.querySelector(`.durum-select[data-index="${index}"]`);
         if (hiddenInput) {
@@ -505,30 +556,291 @@ export function editBransExam(studentId, examId, exam) {
             const btnDogru = group.querySelector('.durum-btn-dogru');
             const btnYanlis = group.querySelector('.durum-btn-yanlis');
             const btnBos = group.querySelector('.durum-btn-bos');
-            btnDogru.className = `flex-grow py-2 text-xs font-bold transition-all ${status === 'dogru' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-dogru`;
-            btnYanlis.className = `flex-grow py-2 text-xs font-bold transition-all ${status === 'yanlis' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-yanlis`;
-            btnBos.className = `flex-grow py-2 text-xs font-bold transition-all ${status === 'bos' ? 'bg-gray-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-bos`;
+            if (btnDogru) btnDogru.className = `flex-grow py-2 text-xs font-bold transition-all ${status === 'dogru' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-dogru`;
+            if (btnYanlis) btnYanlis.className = `flex-grow py-2 text-xs font-bold transition-all ${status === 'yanlis' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-yanlis`;
+            if (btnBos) btnBos.className = `flex-grow py-2 text-xs font-bold transition-all ${status === 'bos' ? 'bg-gray-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-bos`;
+        }
+        if (activeExamState?.sorular?.[index]) {
+            activeExamState.sorular[index].durum = status;
+            if (status === 'dogru') {
+                activeExamState.sorular[index].hataKodu = null;
+            }
         }
         if (hiddenInput) {
             hiddenInput.dispatchEvent(new Event('change'));
         }
+        updateEditFooter();
     };
-    
+
     window.setAllQuestionsCorrect = function () {
-        if (confirm("Tüm soruları doğru olarak işaretlemek istediğinize emin misiniz? Mevcut konu ve hata bilgileri silinecektir.")) {
-            const soruSayisi = exam.sorular.length;
+        if (confirm("Tüm soruları doğru olarak işaretlemek istediğinize emin misiniz?")) {
+            const soruSayisi = activeExamState ? activeExamState.sorular.length : exam.sorular.length;
             for (let i = 0; i < soruSayisi; i++) {
-                setQuestionStatus(i, 'dogru');
+                window.setQuestionStatus(i, 'dogru');
             }
             showSyncStatus("✅ Tüm sorular doğru olarak işaretlendi", false);
         }
     };
-    
-    renderBransExamForm();
+
+    function renderNonFenForm() {
+        let rows = '';
+        const soruSayisi = exam.sorular.length;
+        let totalDogru = 0, totalYanlis = 0, totalBos = 0;
+
+        for (let i = 0; i < soruSayisi; i++) {
+            const soru = activeExamState?.sorular?.[i] || exam.sorular[i] || {};
+            const durum = soru.durum || "bos";
+            if (durum === 'dogru') totalDogru++;
+            else if (durum === 'yanlis') totalYanlis++;
+            else totalBos++;
+
+            rows += `
+                <div class="app-panel p-3 soru-duzenleme-satiri" data-soru-index="${i}">
+                    <div class="font-bold mb-1 text-sm">${i + 1}. Soru</div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Durum</label>
+                        <div class="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-650 durum-btn-group" data-index="${i}">
+                            <button type="button" onclick="setQuestionStatus(${i}, 'dogru')" class="flex-grow py-2 text-xs font-bold transition-all ${durum === 'dogru' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-dogru" data-index="${i}">✅ D</button>
+                            <button type="button" onclick="setQuestionStatus(${i}, 'yanlis')" class="flex-grow py-2 text-xs font-bold transition-all ${durum === 'yanlis' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-yanlis" data-index="${i}">❌ Y</button>
+                            <button type="button" onclick="setQuestionStatus(${i}, 'bos')" class="flex-grow py-2 text-xs font-bold transition-all ${durum === 'bos' ? 'bg-gray-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-bos" data-index="${i}">⬜ B</button>
+                            <input type="hidden" class="durum-select" data-index="${i}" value="${durum}">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const net = calculateNet(totalDogru, totalYanlis);
+        const html = `
+            <div class="app-page">
+                <header class="app-page-header">
+                    <div>
+                        <button onclick="renderStudentPanel('${studentId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Öğrenci Dosyasına Dön</button>
+                        <h2 class="app-page-title">Konu Denemesi Sonucu</h2>
+                        <p class="app-page-subtitle">${escapeHtml(activeExamState.denemeAdi || exam.denemeAdi)} · Soruların durumunu düzenleyin.</p>
+                    </div>
+                    <button onclick="setAllQuestionsCorrect()" class="btn-secondary px-4 py-2.5 text-sm min-h-[44px]"><i class="fas fa-check-double mr-1"></i> Tümünü Doğru İşaretle</button>
+                </header>
+                <div class="app-panel p-5">
+                    <label for="editExamName" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Deneme adı</label>
+                    <input id="editExamName" class="student-form-input min-h-[44px] mb-3" placeholder="Deneme Adı" value="${escapeHtml(activeExamState.denemeAdi || exam.denemeAdi)}">
+                    <div class="mb-2 text-sm text-gray-500">Her soru için durumu girin.</div>
+                    <div class="space-y-3 md:max-h-96 md:overflow-auto mb-3">${rows}</div>
+                    <div class="sticky-footer p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl flex justify-between gap-3 flex-wrap font-bold text-sm" id="editFooter">
+                        <span>Toplam: ${soruSayisi} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span>
+                        <span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>
+                    </div>
+                    <button onclick="saveBransExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>
+                </div>
+            </div>
+        `;
+        document.getElementById("dynamic-content").innerHTML = html;
+        updateEditFooter();
+    }
+
+    function renderFenStep1() {
+        let rows = '';
+        const soruSayisi = activeExamState.sorular.length;
+        let totalDogru = 0, totalYanlis = 0, totalBos = 0;
+
+        for (let i = 0; i < soruSayisi; i++) {
+            const soru = activeExamState.sorular[i];
+            const durum = soru.durum || "bos";
+            if (durum === 'dogru') totalDogru++;
+            else if (durum === 'yanlis') totalYanlis++;
+            else totalBos++;
+
+            rows += `
+                <div class="app-panel p-3 soru-duzenleme-satiri" data-soru-index="${i}">
+                    <div class="font-bold mb-1 text-sm">${i + 1}. Soru</div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Durum</label>
+                        <div class="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-650 durum-btn-group" data-index="${i}">
+                            <button type="button" onclick="setQuestionStatus(${i}, 'dogru')" class="flex-grow py-2.5 text-xs font-bold transition-all ${durum === 'dogru' ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-dogru" data-index="${i}">✅ D</button>
+                            <button type="button" onclick="setQuestionStatus(${i}, 'yanlis')" class="flex-grow py-2.5 text-xs font-bold transition-all ${durum === 'yanlis' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-yanlis" data-index="${i}">❌ Y</button>
+                            <button type="button" onclick="setQuestionStatus(${i}, 'bos')" class="flex-grow py-2.5 text-xs font-bold transition-all ${durum === 'bos' ? 'bg-gray-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} durum-btn-bos" data-index="${i}">⬜ B</button>
+                            <input type="hidden" class="durum-select" data-index="${i}" value="${durum}">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const net = calculateNet(totalDogru, totalYanlis);
+        const allCorrect = (totalYanlis + totalBos === 0);
+
+        const html = `
+            <div class="app-page">
+                <header class="app-page-header">
+                    <div>
+                        <button onclick="renderStudentPanel('${studentId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Öğrenci Dosyasına Dön</button>
+                        <h2 class="app-page-title">Konu Denemesi Sonucu</h2>
+                        <p class="app-page-subtitle">${escapeHtml(activeExamState.denemeAdi)} · 1. Adım: Soru durumlarını (Doğru, Yanlış, Boş) girin.</p>
+                    </div>
+                    <button onclick="setAllQuestionsCorrect()" class="btn-secondary px-4 py-2.5 text-sm min-h-[44px]"><i class="fas fa-check-double mr-1"></i> Tümünü Doğru İşaretle</button>
+                </header>
+
+                <!-- Step Indicator -->
+                <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                        <span class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">1</span>
+                        <span>Sonuç</span>
+                    </div>
+                    <div class="flex-1 h-0.5 mx-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <div class="text-gray-400 text-center"><i class="fas fa-chevron-right text-xs"></i></div>
+                    <div class="flex-1 h-0.5 mx-3 bg-gray-200 dark:bg-gray-700"></div>
+                    <div class="flex items-center gap-2 text-sm font-medium text-gray-400 dark:text-gray-500">
+                        <span class="w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-xs">2</span>
+                        <span>Hata Analizi</span>
+                    </div>
+                </div>
+
+                <div class="app-panel p-5">
+                    <label for="editExamName" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Deneme adı</label>
+                    <input id="editExamName" class="student-form-input min-h-[44px] mb-3" placeholder="Deneme Adı" value="${escapeHtml(activeExamState.denemeAdi)}">
+                    <div class="mb-2 text-sm text-gray-500">Her soru için durumu girin. Yanlış ve boş sorular sonraki adımda analiz edilecektir.</div>
+                    <div class="space-y-3 md:max-h-96 md:overflow-auto mb-3">${rows}</div>
+                    <div class="sticky-footer p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl flex justify-between gap-3 flex-wrap font-bold text-sm" id="editFooter">
+                        <span>Toplam: ${soruSayisi} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span>
+                        <span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>
+                    </div>
+                    <div id="fenStep1CtaContainer">
+                        ${allCorrect ? `
+                            <button type="button" id="btnFenStep1Action" onclick="saveBransExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>
+                        ` : `
+                            <button type="button" id="btnFenStep1Action" onclick="goToFenHataAnaliziStep('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-arrow-right mr-1"></i> Hata Analizine Devam</button>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById("dynamic-content").innerHTML = html;
+        updateEditFooter();
+    }
+
+    function renderFenStep2() {
+        const fenKonulari = getKonuListesiBySinifAndDers(activeExamState.sinif, 'Fen Bilimleri');
+        const soruSayisi = activeExamState.sorular.length;
+        let totalDogru = 0, totalYanlis = 0, totalBos = 0;
+
+        let analysisCards = '';
+        let wrongAndBlankCount = 0;
+
+        for (let i = 0; i < soruSayisi; i++) {
+            const soru = activeExamState.sorular[i];
+            const durum = soru.durum || "bos";
+            if (durum === 'dogru') {
+                totalDogru++;
+                continue; // Only wrong and blank questions are rendered in Step 2
+            }
+            if (durum === 'yanlis') totalYanlis++;
+            else totalBos++;
+            wrongAndBlankCount++;
+
+            analysisCards += `
+                <div class="app-panel p-4 fen-hata-karti border border-gray-200 dark:border-gray-700 rounded-xl transition-all" id="fen-card-${i}" data-index="${i}">
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
+                        <span class="font-bold text-sm text-gray-900 dark:text-gray-100">${soru.soruNo}. Soru</span>
+                        <span class="text-xs px-2.5 py-1 rounded-full font-bold ${durum === 'yanlis' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700'}">
+                            ${durum === 'yanlis' ? 'Yanlış' : 'Boş'}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label for="fen-konu-${i}" class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Yapılamayan Konu <span class="text-red-500">*</span></label>
+                            <select id="fen-konu-${i}" class="student-form-input fen-konu-select min-h-[44px] w-full text-sm" data-index="${i}" onchange="onFenSelectChange(${i})">
+                                <option value="">-- Konu Seçin --</option>
+                                ${fenKonulari.map(k => `<option value="${escapeHtml(k)}" ${soru.konuAdi === k ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="fen-hata-${i}" class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Hata Nedeni <span class="text-red-500">*</span></label>
+                            <select id="fen-hata-${i}" class="student-form-input fen-hata-select min-h-[44px] w-full text-sm" data-index="${i}" onchange="onFenSelectChange(${i})">
+                                <option value="">-- Hata Kodu Seçin --</option>
+                                ${HATA_KODLARI.map(h => `<option value="${escapeHtml(h.kod)}" ${soru.hataKodu === h.kod ? 'selected' : ''}>${escapeHtml(h.kod)} - ${escapeHtml(h.aciklama)}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const net = calculateNet(totalDogru, totalYanlis);
+
+        const html = `
+            <div class="app-page">
+                <header class="app-page-header">
+                    <div>
+                        <button type="button" onclick="goToFenStep1('${studentId}', '${examId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Sonuca Dön</button>
+                        <h2 class="app-page-title">Fen Bilimleri Hata Analizi</h2>
+                        <p class="app-page-subtitle">${escapeHtml(activeExamState.denemeAdi)} · 2. Adım: Yanlış ve boş sorular için yapılamayan konuyu ve hata nedenini belirleyin.</p>
+                    </div>
+                </header>
+
+                <!-- Step Indicator -->
+                <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        <span class="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center justify-center text-xs"><i class="fas fa-check text-[10px]"></i></span>
+                        <span>1. Sonuç</span>
+                    </div>
+                    <div class="flex-1 h-0.5 mx-3 bg-indigo-200 dark:bg-indigo-800"></div>
+                    <div class="text-indigo-400 text-center"><i class="fas fa-chevron-right text-xs"></i></div>
+                    <div class="flex-1 h-0.5 mx-3 bg-indigo-200 dark:bg-indigo-800"></div>
+                    <div class="flex items-center gap-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                        <span class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">2</span>
+                        <span>Hata Analizi</span>
+                    </div>
+                </div>
+
+                <input type="hidden" id="editExamName" value="${escapeHtml(activeExamState.denemeAdi)}">
+
+                <!-- Summary Banner -->
+                <div class="mb-4 p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 rounded-xl">
+                    <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+                        <div class="flex items-center gap-2 flex-wrap font-semibold text-gray-700 dark:text-gray-300">
+                            <span class="bg-white dark:bg-gray-800 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700">${soruSayisi} soru</span>
+                            <span class="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">${totalDogru} doğru</span>
+                            <span class="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-800">${totalYanlis} yanlış</span>
+                            <span class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-700">${totalBos} boş</span>
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold px-2 py-1">Net: ${net.toFixed(2)}</span>
+                        </div>
+                        <div class="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <i class="fas fa-exclamation-circle mr-1"></i> ${wrongAndBlankCount} analiz edilecek soru
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Validation Alert Container -->
+                <div id="fenValidationAlert" class="hidden mb-4 p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-sm font-semibold items-center gap-2"></div>
+
+                <!-- Error Analysis Cards (Only Yanlis & Bos) -->
+                <div class="space-y-3 mb-4" id="fenCardsContainer">
+                    ${analysisCards}
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-col sm:flex-row items-center gap-3 mt-4">
+                    <button type="button" onclick="goToFenStep1('${studentId}', '${examId}')" class="btn-secondary w-full sm:w-1/3 py-3 min-h-[44px]"><i class="fas fa-arrow-left mr-1"></i> Sonuca Dön</button>
+                    <button type="button" onclick="saveFenExamWithAnalysis('${studentId}', '${examId}')" class="btn-primary w-full sm:w-2/3 py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu ve Hata Analizini Kaydet</button>
+                </div>
+            </div>
+        `;
+        document.getElementById("dynamic-content").innerHTML = html;
+    }
+
+    window._renderFenStep1 = renderFenStep1;
+    window._renderFenStep2 = renderFenStep2;
+
+    if (isFenExam) {
+        renderFenStep1();
+    } else {
+        renderNonFenForm();
+    }
 }
 
 export async function saveBransExamEdit(studentId, examId) {
-    const examName = document.getElementById('editExamName')?.value.trim();
+    const examNameInput = document.getElementById('editExamName');
+    const examName = examNameInput ? examNameInput.value.trim() : (activeExamState?.denemeAdi || '');
     if (!examName) {
         alert("Deneme adı girin");
         return;
@@ -545,34 +857,63 @@ export async function saveBransExamEdit(studentId, examId) {
         return;
     }
     const exam = students[sIdx].denemeler[examIndex];
+    const isFenExam = exam.tip === 'branş' && exam.ders === 'Fen Bilimleri';
     const soruSayisi = exam.sorular.length;
     let toplamDogru = 0, toplamYanlis = 0, toplamBos = 0;
     const updatedSorular = [];
     let hataEksik = false;
-    
-    for (let i = 0; i < soruSayisi; i++) {
-        const durumSelect = document.querySelector(`.durum-select[data-index="${i}"]`);
-        const konuSelect = document.querySelector(`.konu-select[data-index="${i}"]`);
-        const hataSelect = document.querySelector(`.hata-select[data-index="${i}"]`);
-        let durum = durumSelect ? durumSelect.value : exam.sorular[i].durum;
-        let konu = "";
-        let hataKodu = null;
-        if (durum === 'dogru') {
-            toplamDogru++;
-        } else {
-            if (konuSelect) konu = konuSelect.value;
-            if (hataSelect) hataKodu = hataSelect.value;
-            if (!konu) hataEksik = true;
-            if (durum === 'yanlis') toplamYanlis++;
-            else toplamBos++;
+    let eksikHataSayisi = 0;
+
+    if (isFenExam) {
+        for (let i = 0; i < soruSayisi; i++) {
+            const stSoru = activeExamState?.sorular?.[i];
+            const durumSelect = document.querySelector(`.durum-select[data-index="${i}"]`);
+            let durum = stSoru ? stSoru.durum : (durumSelect ? durumSelect.value : (exam.sorular[i]?.durum || 'bos'));
+
+            let konu = stSoru ? stSoru.konuAdi : (exam.sorular[i]?.konuAdi || '');
+            let hataKodu = stSoru ? stSoru.hataKodu : (exam.sorular[i]?.hataKodu || null);
+
+            const konuSelect = document.querySelector(`.fen-konu-select[data-index="${i}"]`);
+            const hataSelect = document.querySelector(`.fen-hata-select[data-index="${i}"]`);
+            if (konuSelect && konuSelect.value) konu = konuSelect.value.trim();
+            if (hataSelect && hataSelect.value) hataKodu = hataSelect.value.trim();
+
+            if (durum === 'dogru') {
+                toplamDogru++;
+                hataKodu = null;
+                if (!konu) konu = exam.sorular[i]?.konuAdi || exam.konu || 'Fen Bilimleri';
+            } else {
+                if (!konu || !hataKodu) {
+                    hataEksik = true;
+                    eksikHataSayisi++;
+                }
+                if (durum === 'yanlis') toplamYanlis++;
+                else toplamBos++;
+            }
+            updatedSorular.push({ soruNo: i + 1, konuAdi: konu || "", durum: durum, hataKodu: hataKodu || null });
         }
-        updatedSorular.push({ soruNo: i + 1, konuAdi: konu || "", durum: durum, hataKodu: hataKodu || null });
+
+        if (hataEksik) {
+            alert(`${eksikHataSayisi} hata kaydı eksik. Lütfen işaretli sorular için konu ve hata nedenini seçin.`);
+            return;
+        }
+    } else {
+        // Non-Fen branch exam: simple save without requiring topic or error code
+        for (let i = 0; i < soruSayisi; i++) {
+            const durumSelect = document.querySelector(`.durum-select[data-index="${i}"]`);
+            let durum = durumSelect ? durumSelect.value : (exam.sorular[i]?.durum || 'bos');
+            let konu = exam.sorular[i]?.konuAdi || exam.konu || exam.ders || "";
+            let hataKodu = null;
+            if (durum === 'dogru') {
+                toplamDogru++;
+            } else {
+                if (durum === 'yanlis') toplamYanlis++;
+                else toplamBos++;
+            }
+            updatedSorular.push({ soruNo: i + 1, konuAdi: konu || "", durum: durum, hataKodu: hataKodu || null });
+        }
     }
-    
-    if (hataEksik) {
-        alert("Lütfen tüm yanlış veya boş sorular için konu seçiniz!");
-        return;
-    }
+
     const net = calculateNet(toplamDogru, toplamYanlis);
     const updatedExam = { ...exam, denemeAdi: examName, sorular: updatedSorular, toplamDogru, toplamYanlis, toplamBos, toplamNet: net, toplamSoru: soruSayisi };
     const res = await updateStudentArrayRecord(studentId, 'denemeler', exam.id, updatedExam);
@@ -587,14 +928,14 @@ export function editGenelExam(studentId, examId, exam) {
     let dersRows = '';
     const dersBilgileri = exam.dersBilgileri || [];
     const dersSonuclari = exam.dersSonuclari || {};
-    
+
     for (let item of dersBilgileri) {
         const dersKey = item.ders;
         const idx = GENEL_DERSLER_KEY.indexOf(dersKey);
         const dersGorunum = idx !== -1 ? GENEL_DERSLER_GORUNUM[idx] : dersKey;
         const toplamSoru = item.adet;
         const sonuc = dersSonuclari[dersKey] || { dogru: 0, yanlis: 0, bos: toplamSoru };
-        
+
         dersRows += `
             <div class="app-panel p-3">
                 <div class="font-bold mb-2 text-sm">${dersGorunum}</div>
@@ -616,7 +957,7 @@ export function editGenelExam(studentId, examId, exam) {
             </div>
         `;
     }
-    
+
     const html = `
         <div class="app-page">
             <header class="app-page-header"><div><button onclick="renderStudentPanel('${studentId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Öğrenci Dosyasına Dön</button><h2 class="app-page-title">Genel Deneme Sonucu</h2><p class="app-page-subtitle">${escapeHtml(exam.denemeAdi)} · Ders bazında doğru ve yanlış sayılarını düzenleyin.</p></div></header>
@@ -634,11 +975,11 @@ export function editGenelExam(studentId, examId, exam) {
         </div>
     `;
     document.getElementById("dynamic-content").innerHTML = html;
-    
+
     const dogruInputs = document.querySelectorAll('.genel-dogru');
     const yanlisInputs = document.querySelectorAll('.genel-yanlis');
     const bosInputs = document.querySelectorAll('.genel-bos');
-    
+
     function updateDers(dogruInput, yanlisInput, bosInput, toplam) {
         let dogru = parseInt(dogruInput.value) || 0;
         let yanlis = parseInt(yanlisInput.value) || 0;
@@ -648,7 +989,7 @@ export function editGenelExam(studentId, examId, exam) {
         yanlisInput.value = yanlis;
         bosInput.value = toplam - dogru - yanlis;
     }
-    
+
     function updateAll() {
         let totalDogru = 0, totalYanlis = 0, totalBos = 0;
         dogruInputs.forEach((inp, idx) => {
@@ -664,13 +1005,13 @@ export function editGenelExam(studentId, examId, exam) {
         const footer = document.getElementById('editFooter');
         if (footer) footer.innerHTML = `<span>Toplam: ${exam.toplamSoru} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span><span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>`;
     }
-    
+
     for (let i = 0; i < dogruInputs.length; i++) {
         const toplam = parseInt(dogruInputs[i].getAttribute('data-toplam'));
         const dogruInp = dogruInputs[i];
         const yanlisInp = yanlisInputs[i];
         const bosInp = bosInputs[i];
-        
+
         dogruInp.addEventListener('input', () => {
             updateDers(dogruInp, yanlisInp, bosInp, toplam);
             updateAll();
@@ -704,7 +1045,7 @@ export async function saveGenelExamEdit(studentId, examId) {
     const dersBilgileri = exam.dersBilgileri || [];
     const dersSonuclari = {};
     let toplamDogru = 0, toplamYanlis = 0, toplamBos = 0;
-    
+
     for (let item of dersBilgileri) {
         const dersKey = item.ders;
         const toplamSoru = item.adet;
@@ -811,7 +1152,7 @@ export function viewExam(studentId, examId) {
         detay += `<div class="border-b dark:border-gray-700 py-1.5 font-medium">${soru.soruNo}. Soru${konuStr}: ${durumEmoji} ${soru.durum}${hataStr}</div>`;
     }
     detay += '</div>';
-    
+
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4";
     modal.innerHTML = `
@@ -993,7 +1334,7 @@ export async function exportReport(format) {
                 <h2 style="margin: 5px 0; color: #1f2937;">${escapeHtml(student.adSoyad)}</h2>
                 <p style="color: #4b5563; margin: 5px 0;">🏫 ${escapeHtml(student.okul)} | 📚 ${student.sinif ? student.sinif + '. Sınıf' : 'Sınıf belirtilmemiş'} | 🎯 Hedef Net: ${student.hedefNet} | 🏫 Hedef Lise: ${escapeHtml(student.hedefLise)}</p>
             </div>
-            
+
             <div style="display: flex; gap: 30px; margin-bottom: 20px;">
                 <div style="flex: 1; background: #fafafa; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb;">
                     <h3 style="background: #0f766e; color: white; padding: 8px 12px; border-radius: 8px; margin-top: 0;">🔬 Konu Denemesi Analizi</h3>
@@ -1004,7 +1345,7 @@ export async function exportReport(format) {
                     <h4 style="margin: 15px 0 5px 0; color: #374151; border-bottom: 1px solid #e5e7eb; pb: 3px;">⚠️ Hata Kodu Analizi</h4>
                     <ul style="margin: 5px 0; padding-left: 20px; font-size:13px; color:#4b5563;">${hataList.map(h => `<li><strong>${h.kod}</strong> - ${h.ad}: ${h.adet} hata</li>`).join('')}</ul>
                 </div>
-                
+
                 <div style="flex: 1; background: #fafafa; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb;">
                     <h3 style="background: #4f46e5; color: white; padding: 8px 12px; border-radius: 8px; margin-top: 0;">📘 Genel Deneme Analizi</h3>
                     <p style="margin: 8px 0;"><strong>Toplam Genel Deneme Sayısı:</strong> ${genelSayisi}</p>
@@ -1028,7 +1369,7 @@ export async function exportReport(format) {
                     ${homeworkHtml}
                 </div>
             </div>
-            
+
             <hr style="margin: 30px 0 15px 0; border: 0; border-top: 1px solid #e5e7eb;">
             <p style="text-align: center; font-size: 12px; color: #9ca3af; margin: 0;">Rapor Tarihi: ${new Date().toLocaleDateString()} - Canfenci Öğrenci Takip Sistemi</p>
         </div>
@@ -1084,3 +1425,7 @@ window.updateTopicExamOptions = updateTopicExamOptions;
 window.toggleTopicExamManualTopic = toggleTopicExamManualTopic;
 window.toggleTopicExamManualResource = toggleTopicExamManualResource;
 window.isExamResultPending = isExamResultPending;
+window.goToFenHataAnaliziStep = goToFenHataAnaliziStep;
+window.goToFenStep1 = goToFenStep1;
+window.onFenSelectChange = onFenSelectChange;
+window.saveFenExamWithAnalysis = saveFenExamWithAnalysis;
