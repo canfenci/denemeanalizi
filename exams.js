@@ -756,6 +756,34 @@ export async function saveGenelExamEdit(studentId, examId) {
     if (window.renderStudentPanel) window.renderStudentPanel(studentId);
 }
 
+export function isExamResultPending(exam) {
+    if (!exam || typeof exam !== 'object') return false;
+    const totalQuestions = Number(exam.toplamSoru ?? (Array.isArray(exam.sorular) ? exam.sorular.length : 0));
+    if (totalQuestions <= 0) return false;
+
+    const dogru = Number(exam.toplamDogru ?? 0);
+    const yanlis = Number(exam.toplamYanlis ?? 0);
+    const bos = Number(exam.toplamBos ?? 0);
+
+    if (dogru !== 0 || yanlis !== 0) return false;
+    if (bos !== totalQuestions) return false;
+
+    if (Array.isArray(exam.sorular) && exam.sorular.length > 0) {
+        const hasAnswered = exam.sorular.some(q => q && q.durum && q.durum !== 'bos');
+        if (hasAnswered) return false;
+    }
+
+    if (exam.dersSonuclari && typeof exam.dersSonuclari === 'object') {
+        const results = Object.values(exam.dersSonuclari);
+        if (results.length > 0) {
+            const hasScore = results.some(r => r && (Number(r.dogru || 0) > 0 || Number(r.yanlis || 0) > 0));
+            if (hasScore) return false;
+        }
+    }
+
+    return true;
+}
+
 export function editExam(studentId, examId) {
     const students = loadStudentsData();
     const student = students.find(s => s.id === studentId);
@@ -1055,3 +1083,4 @@ window.getHataIstatistikleri = getHataIstatistikleri;
 window.updateTopicExamOptions = updateTopicExamOptions;
 window.toggleTopicExamManualTopic = toggleTopicExamManualTopic;
 window.toggleTopicExamManualResource = toggleTopicExamManualResource;
+window.isExamResultPending = isExamResultPending;

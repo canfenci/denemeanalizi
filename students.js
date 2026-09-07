@@ -4,7 +4,7 @@ import { db, auth, isFirebaseActive } from './firebase-config.js';
 import { store, loadStudentsData, saveStudentsData, createStudentDocument, updateStudentProfile, loadSchedule, loadDersKayitlari, getStudentOdevler, getKonuListesiBySinif, escapeHtml, POPULER_LISELER, HATA_KODLARI, getErrorColor, GENEL_DERSLER_KEY, GENEL_DERSLER_GORUNUM, localDataKey } from './store.js';
 import { showSyncStatus } from './ui-helpers.js';
 import { updateMobileNavActive } from './auth.js';
-import { getBransOrtalamaNet, getGenelOrtalamaNet, getOrtalamaNet, getKonuBazliBasarilar, getBestWorstTopics, getMotivationMessage, getHataIstatistikleri, lgsPuanHesapla } from './exams.js';
+import { getBransOrtalamaNet, getGenelOrtalamaNet, getOrtalamaNet, getKonuBazliBasarilar, getBestWorstTopics, getMotivationMessage, getHataIstatistikleri, lgsPuanHesapla, isExamResultPending } from './exams.js';
 import { buildStudentTimeline, calculateSmartExamAnalysis, calculateStudentSummary, formatTimelineDate } from './student-insights.js';
 import { validateStudentInput } from './data-validation.js';
 import { renderLessonReminderCenter } from './lesson-reminders.js';
@@ -157,6 +157,121 @@ export async function renderStudentCockpit(id, origin = store.studentPanelOrigin
         ['fa-bullseye', 'Hedef durumu', cockpit.targetGap === null ? '—' : cockpit.targetGap <= 0 ? 'Hedefte' : `${formatCockpitNet(cockpit.targetGap)} net`, cockpit.targetGap === null ? 'Hedef veya son deneme yok' : cockpit.targetGap <= 0 ? 'Son deneme hedefe ulaştı' : 'Hedefe kalan net']
     ];
 
+    const rawExams = Array.isArray(student.denemeler) ? student.denemeler : [];
+    const sortedExams = rawExams
+        .map((exam, origIdx) => ({ exam, origIdx }))
+        .sort((a, b) => {
+            const dateA = a.exam.tarih || '';
+            const dateB = b.exam.tarih || '';
+            if (dateA !== dateB) {
+                return dateB.localeCompare(dateA);
+            }
+            return b.origIdx - a.origIdx;
+        })
+        .map(item => item.exam);
+
+    const pendingCount = sortedExams.filter(ex => isExamResultPending(ex)).length;
+
+    let examsListHtml = '';
+    if (sortedExams.length === 0) {
+        examsListHtml = `
+            <div class="cf-empty-state my-2">
+                <div class="cf-empty-state-icon"><i class="fas fa-file-lines"></i></div>
+                <div class="cf-empty-state-title">Henüz deneme eklenmemiş.</div>
+                <div class="cf-empty-state-description">Öğrenciye konu veya genel deneme atayarak sonuçları buradan takip edebilirsiniz.</div>
+                <button onclick="openCockpitExam('${id}')" class="btn-primary min-h-[44px] px-4 py-2 text-sm inline-flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Deneme Ekle
+                </button>
+            </div>
+        `;
+    } else {
+        const cards = sortedExams.map(ex => {
+            const isPending = isExamResultPending(ex);
+            const isGenel = ex.tip === 'genel';
+            const typeBadge = isGenel
+                ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50"><i class="fas fa-layer-group text-[10px] mr-1"></i> Genel Deneme</span>'
+                : '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"><i class="fas fa-flask text-[10px] mr-1"></i> Konu Denemesi</span>';
+
+            const questionCount = Number(ex.toplamSoru ?? (Array.isArray(ex.sorular) ? ex.sorular.length : 0));
+            const extraDetails = [
+                ex.ders,
+                ex.konu,
+                ex.kaynak
+            ].filter(Boolean).map(escapeHtml).join(' · ');
+
+            const dateStr = ex.tarih ? formatDate(ex.tarih) : 'Tarih yok';
+
+            return `
+                <div class="rounded-xl border ${isPending ? 'border-amber-200 bg-amber-50/40 dark:border-amber-900/50 dark:bg-amber-950/10' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'} p-4 transition hover:border-gray-300 dark:hover:border-gray-600">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div class="space-y-1.5 min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white break-words">${escapeHtml(ex.denemeAdi || 'İsimsiz Deneme')}</h4>
+                                ${typeBadge}
+                                ${isPending ? '<span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"><i class="fas fa-hourglass-half text-[10px]"></i> Sonuç Bekliyor</span>' : ''}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                <span><i class="far fa-calendar mr-1"></i>${escapeHtml(dateStr)}</span>
+                                <span><i class="far fa-circle-question mr-1"></i>${questionCount} soru</span>
+                                ${extraDetails ? `<span><i class="fas fa-tag mr-1"></i>${extraDetails}</span>` : ''}
+                            </div>
+                            ${!isPending ? `
+                                <div class="flex flex-wrap items-center gap-3 pt-1">
+                                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                        <strong class="text-green-600 dark:text-green-400">${ex.toplamDogru ?? 0}D</strong>
+                                        <span class="mx-1 text-gray-300 dark:text-gray-600">·</span>
+                                        <strong class="text-red-600 dark:text-red-400">${ex.toplamYanlis ?? 0}Y</strong>
+                                        <span class="mx-1 text-gray-300 dark:text-gray-600">·</span>
+                                        <strong class="text-gray-500">${ex.toplamBos ?? 0}B</strong>
+                                    </span>
+                                    <span class="rounded-md bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 text-xs font-black text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900">
+                                        ${formatCockpitNet(ex.toplamNet ?? 0)} Net
+                                    </span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 shrink-0">
+                            ${isPending ? `
+                                <button onclick="editExam('${id}', '${ex.id}')" class="btn-primary min-h-[44px] px-4 py-2 text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                                    <i class="fas fa-pen-to-square"></i> Sonuç Gir
+                                </button>
+                            ` : `
+                                <button onclick="viewExam('${id}', '${ex.id}')" class="btn-secondary min-h-[44px] px-3.5 py-2 text-sm font-medium flex items-center justify-center gap-1.5">
+                                    <i class="fas fa-eye"></i> Sonucu Gör
+                                </button>
+                                <button onclick="editExam('${id}', '${ex.id}')" class="btn-secondary min-h-[44px] px-3.5 py-2 text-sm font-medium flex items-center justify-center gap-1.5">
+                                    <i class="fas fa-pen"></i> Düzenle
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        examsListHtml = `<div class="mt-4 space-y-3 max-h-[580px] overflow-y-auto pr-1">${cards}</div>`;
+    }
+
+    const examsSectionHtml = `
+        <section class="app-panel p-5" id="cockpit-exams-section">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                        <i class="fas fa-file-signature text-sm"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-black text-gray-900 dark:text-white">Denemeler</h3>
+                            ${pendingCount > 0 ? `<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/60 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"><i class="fas fa-clock text-[10px]"></i> ${pendingCount} sonuç bekliyor</span>` : ''}
+                        </div>
+                        <p class="mt-0.5 text-xs text-gray-500">Atanmış ve tamamlanmış tüm denemeler</p>
+                    </div>
+                </div>
+                <button onclick="openCockpitExam('${id}')" class="btn-secondary min-h-[44px] px-3.5 text-sm flex items-center justify-center gap-1.5 self-start sm:self-auto"><i class="fas fa-plus"></i> Deneme Ekle</button>
+            </div>
+            ${examsListHtml}
+        </section>
+    `;
+
     document.getElementById('dynamic-content').innerHTML = `
         <div class="app-page cf-cockpit pb-28 sm:pb-8">
             <header class="app-page-header cf-cockpit-header"><div class="flex items-start gap-4"><button onclick="${currentOrigin}" class="btn-secondary min-h-[44px] px-3" aria-label="${currentOriginLabel} sayfasına dön"><i class="fas fa-arrow-left"></i></button><div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-lg font-black tracking-wide text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">${escapeHtml(getStudentInitials(student.adSoyad))}</div><div><h2 class="app-page-title">${escapeHtml(student.adSoyad)}</h2><p class="app-page-subtitle">${escapeHtml(student.sinif ? `${student.sinif}. Sınıf` : 'Sınıf belirtilmemiş')} ${student.hedefNet ? `· Hedef: ${escapeHtml(student.hedefNet)} net` : ''}</p><p class="mt-1 text-xs text-gray-500">${[student.okul, student.grup, student.hedefLise].filter(Boolean).map(escapeHtml).join(' · ') || 'Ek okul veya hedef bilgisi yok'}</p></div></div><button onclick="editStudent('${id}')" class="btn-secondary min-h-[44px] px-4"><i class="fas fa-pen mr-1"></i> Düzenle</button></header>
@@ -164,6 +279,7 @@ export async function renderStudentCockpit(id, origin = store.studentPanelOrigin
             <section class="grid grid-cols-2 lg:grid-cols-4 gap-3"><!-- 4 temel metrik -->${metrics.map(([icon, label, value, detail]) => `<article class="app-panel p-4"><div class="flex items-center gap-2 text-gray-400"><i class="fas ${icon} text-xs"></i><p class="text-[11px] font-black uppercase tracking-[.1em]">${label}</p></div><p class="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">${value}</p><p class="mt-1 text-xs text-gray-500">${detail}</p></article>`).join('')}</section>
             <section class="app-panel p-5"><div class="flex items-center justify-between gap-3"><div><h3 class="text-lg font-black">Kritik içgörüler</h3><p class="mt-1 text-sm text-gray-500">Mevcut deneme ve ödev verilerinden hesaplanır.</p></div><i class="fas fa-lightbulb text-slate-400"></i></div><div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">${insights.map(([icon, label, value]) => `<article class="rounded-xl border border-gray-200 p-3.5 dark:border-gray-700"><div class="flex items-center gap-2 text-xs font-black uppercase tracking-[.08em] text-gray-400"><i class="fas ${icon}"></i>${label}</div><p class="mt-2 text-sm font-bold leading-5 text-gray-800 dark:text-gray-100">${escapeHtml(value)}</p></article>`).join('')}</div></section>
             <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(290px,.8fr)]"><article class="app-panel p-5"><div class="flex items-start justify-between gap-3"><div><h3 class="text-lg font-black">Son 5 Deneme Eğilimi</h3><p class="mt-1 text-sm text-gray-500">Yalnız genel ve karşılaştırılabilir denemeler</p></div><button onclick="openCockpitExam('${id}')" class="text-sm font-bold text-indigo-600 dark:text-indigo-300">Deneme ekle</button></div><div class="mt-4 h-56">${cockpit.recentExams.length >= 2 ? '<canvas id="cockpitTrendChart" aria-label="Son beş genel deneme net eğilimi"></canvas>' : '<div class="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 dark:border-gray-700">Trend için en az 2 genel deneme sonucu gerekli.</div>'}</div>${cockpit.trendDelta !== null ? `<p class="mt-3 text-sm font-semibold ${cockpit.trendDelta >= 0 ? 'text-emerald-600' : 'text-red-600'}"><i class="fas ${cockpit.trendDelta >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-1"></i>Son ${cockpit.recentExams.length} denemede ${formatCockpitNet(Math.abs(cockpit.trendDelta))} net ${cockpit.trendDelta >= 0 ? 'artış' : 'düşüş'} var.</p>` : ''}</article><aside class="app-panel p-5"><h3 class="text-lg font-black">Öğrenci durum özeti</h3><ul class="mt-3">${statusHtml}</ul></aside></section>
+            ${examsSectionHtml}
             <section class="grid gap-4 xl:grid-cols-2"><article class="app-panel p-5"><div class="flex items-center justify-between gap-3"><div><h3 class="text-lg font-black">Son etkinlikler</h3><p class="mt-1 text-sm text-gray-500">En güncel 6 hareket</p></div><button onclick="renderOdevTakibi('${id}')" class="text-sm font-bold text-indigo-600 dark:text-indigo-300">Ödevlere git</button></div><div class="mt-5">${timelineHtml}</div></article><aside class="app-panel p-5"><h3 class="text-lg font-black">Yaklaşanlar</h3><div class="mt-4 space-y-3"><div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700"><p class="text-xs font-black uppercase tracking-[.08em] text-gray-400">Sonraki ders</p><p class="mt-1 font-bold">${escapeHtml(upcomingLesson)}</p><p class="mt-1 text-sm text-gray-500">${escapeHtml(cockpit.upcomingLesson?.dersAdi || 'Planlanmadı')}</p></div><div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700"><p class="text-xs font-black uppercase tracking-[.08em] text-gray-400">Ödev teslimi</p><p class="mt-1 font-bold">${escapeHtml(cockpit.pendingHomework ? formatDate(cockpit.pendingHomework.bitisTarihi) : 'Planlanmadı')}</p><p class="mt-1 text-sm text-gray-500">${escapeHtml(cockpit.pendingHomework?.konu || 'Aktif ödev yok')}</p></div><div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700"><p class="text-xs font-black uppercase tracking-[.08em] text-gray-400">Sonraki deneme</p><p class="mt-1 font-bold">Planlanmadı</p><p class="mt-1 text-sm text-gray-500">Deneme atandığında burada görünür.</p></div></div></aside></section>
         </div>`;
 
