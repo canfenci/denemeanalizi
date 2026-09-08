@@ -562,6 +562,61 @@ export function isFenBranchExam(exam, student) {
     return false;
 }
 
+/**
+ * Pure, read-only helper to determine the question indices of the Science ("Fen Bilimleri")
+ * section in a general exam. Uses exam.dersBilgileri order and counts, with safe fallback
+ * to checking exam.sorular[].konuAdi.
+ *
+ * @param {Object} exam
+ * @returns {number[]} Array of 0-based question indices in exam.sorular
+ */
+export function getGeneralExamFenQuestionIndexes(exam) {
+    if (!exam || exam.tip !== 'genel') return [];
+    const indices = [];
+    const dersBilgileri = Array.isArray(exam.dersBilgileri) ? exam.dersBilgileri : [];
+    const fenIndex = dersBilgileri.findIndex(d => d.ders === 'Fen Bilimleri');
+
+    if (fenIndex !== -1) {
+        let start = 0;
+        for (let i = 0; i < fenIndex; i++) {
+            start += Number(dersBilgileri[i].adet || 0);
+        }
+        const count = Number(dersBilgileri[fenIndex].adet || 0);
+        for (let i = start; i < start + count; i++) {
+            indices.push(i);
+        }
+        return indices;
+    }
+
+    // Fallback: search exam.sorular for 'Fen Bilimleri' or canonical Fen topics
+    if (Array.isArray(exam.sorular)) {
+        exam.sorular.forEach((q, idx) => {
+            if (q && (q.konuAdi === 'Fen Bilimleri' || q.ders === 'Fen Bilimleri')) {
+                indices.push(idx);
+            }
+        });
+    }
+    return indices;
+}
+
+/**
+ * Pure, read-only helper to extract the Science ("Fen Bilimleri") question objects
+ * from a general exam.
+ *
+ * @param {Object} exam
+ * @returns {Object[]} Array of question objects
+ */
+export function getGeneralExamFenQuestions(exam) {
+    if (!exam || !Array.isArray(exam.sorular)) return [];
+    const indices = getGeneralExamFenQuestionIndexes(exam);
+    return indices.map(idx => exam.sorular[idx]).filter(Boolean);
+}
+
+if (typeof window !== 'undefined') {
+    window.getGeneralExamFenQuestionIndexes = getGeneralExamFenQuestionIndexes;
+    window.getGeneralExamFenQuestions = getGeneralExamFenQuestions;
+}
+
 export function editBransExam(studentId, examId, exam) {
     const students = loadStudentsData();
     const student = students.find(s => s.id === studentId);
@@ -996,53 +1051,97 @@ export async function saveBransExamEdit(studentId, examId) {
     if (window.renderStudentPanel) window.renderStudentPanel(studentId);
 }
 
+let activeGeneralExamState = null;
+
 export function editGenelExam(studentId, examId, exam) {
-    let dersRows = '';
+    const isReturningFromStep2 = arguments[3] === true;
+    const students = loadStudentsData();
+    const student = students.find(s => s.id === studentId);
+    const studentGrade = String(exam.sinif || student?.sinif || '8').trim();
+
     const dersBilgileri = exam.dersBilgileri || [];
     const dersSonuclari = exam.dersSonuclari || {};
 
+    if (!isReturningFromStep2 || !activeGeneralExamState || activeGeneralExamState.examId !== examId) {
+        const allDersInputs = {};
+        for (let item of dersBilgileri) {
+            const dersKey = item.ders;
+            const res = dersSonuclari[dersKey] || { dogru: 0, yanlis: 0, bos: item.adet };
+            allDersInputs[dersKey] = { dogru: res.dogru, yanlis: res.yanlis, bos: res.bos };
+        }
+
+        activeGeneralExamState = {
+            studentId,
+            examId,
+            sinif: studentGrade,
+            denemeAdi: exam.denemeAdi || '',
+            currentStep: 1,
+            dersBilgileri: JSON.parse(JSON.stringify(dersBilgileri)),
+            dersSonuclari: JSON.parse(JSON.stringify(dersSonuclari)),
+            allDersInputs,
+            fenQuestionsToAnalyze: []
+        };
+    } else {
+        activeGeneralExamState.currentStep = 1;
+    }
+    window._activeGeneralExamState = activeGeneralExamState;
+
+    let dersRows = '';
     for (let item of dersBilgileri) {
         const dersKey = item.ders;
         const idx = GENEL_DERSLER_KEY.indexOf(dersKey);
         const dersGorunum = idx !== -1 ? GENEL_DERSLER_GORUNUM[idx] : dersKey;
         const toplamSoru = item.adet;
-        const sonuc = dersSonuclari[dersKey] || { dogru: 0, yanlis: 0, bos: toplamSoru };
+        const currentInput = activeGeneralExamState.allDersInputs[dersKey] || dersSonuclari[dersKey] || { dogru: 0, yanlis: 0, bos: toplamSoru };
+        const dogruVal = currentInput.dogru ?? 0;
+        const yanlisVal = currentInput.yanlis ?? 0;
+        const bosVal = toplamSoru - dogruVal - yanlisVal;
 
         dersRows += `
             <div class="app-panel p-3">
-                <div class="font-bold mb-2 text-sm">${dersGorunum}</div>
+                <div class="font-bold mb-2 text-sm">${escapeHtml(dersGorunum)}</div>
                 <div class="text-xs text-gray-500 mb-2">Toplam Soru: ${toplamSoru}</div>
                 <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-semibold mb-1">Doğru</label>
-                        <input type="number" min="0" max="${toplamSoru}" value="${sonuc.dogru}" class="student-form-input genel-dogru min-h-[44px]" data-ders="${dersKey}" data-toplam="${toplamSoru}">
+                        <input type="number" min="0" max="${toplamSoru}" value="${dogruVal}" class="student-form-input genel-dogru min-h-[44px]" data-ders="${escapeHtml(dersKey)}" data-toplam="${toplamSoru}">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold mb-1">Yanlış</label>
-                        <input type="number" min="0" max="${toplamSoru}" value="${sonuc.yanlis}" class="student-form-input genel-yanlis min-h-[44px]" data-ders="${dersKey}" data-toplam="${toplamSoru}">
+                        <input type="number" min="0" max="${toplamSoru}" value="${yanlisVal}" class="student-form-input genel-yanlis min-h-[44px]" data-ders="${escapeHtml(dersKey)}" data-toplam="${toplamSoru}">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold mb-1">Boş</label>
-                        <input type="number" min="0" max="${toplamSoru}" value="${sonuc.bos}" class="student-form-input genel-bos min-h-[44px] bg-gray-50 dark:bg-gray-900/50" data-ders="${dersKey}" data-toplam="${toplamSoru}" readonly>
+                        <input type="number" min="0" max="${toplamSoru}" value="${bosVal}" class="student-form-input genel-bos min-h-[44px] bg-gray-50 dark:bg-gray-900/50" data-ders="${escapeHtml(dersKey)}" data-toplam="${toplamSoru}" readonly>
                     </div>
                 </div>
             </div>
         `;
     }
 
+    const currentExamName = activeGeneralExamState.denemeAdi || exam.denemeAdi || '';
+
     const html = `
         <div class="app-page">
-            <header class="app-page-header"><div><button onclick="renderStudentPanel('${studentId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Öğrenci Dosyasına Dön</button><h2 class="app-page-title">Genel Deneme Sonucu</h2><p class="app-page-subtitle">${escapeHtml(exam.denemeAdi)} · Ders bazında doğru ve yanlış sayılarını düzenleyin.</p></div></header>
+            <header class="app-page-header">
+                <div>
+                    <button type="button" onclick="renderStudentPanel('${studentId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Öğrenci Dosyasına Dön</button>
+                    <h2 class="app-page-title">Genel Deneme Sonucu</h2>
+                    <p class="app-page-subtitle">${escapeHtml(currentExamName)} · Ders bazında doğru ve yanlış sayılarını düzenleyin.</p>
+                </div>
+            </header>
             <div class="app-panel p-5">
                 <label for="editExamName" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Deneme adı</label>
-                <input id="editExamName" class="student-form-input min-h-[44px] mb-3" placeholder="Deneme Adı" value="${escapeHtml(exam.denemeAdi)}">
+                <input id="editExamName" class="student-form-input min-h-[44px] mb-3" placeholder="Deneme Adı" value="${escapeHtml(currentExamName)}">
                 <div class="mb-2 text-sm text-gray-500">Her ders için doğru, yanlış ve boş sayılarını girin. Boş sayısı otomatik hesaplanır.</div>
                 <div class="space-y-3 md:max-h-96 md:overflow-auto mb-3">${dersRows}</div>
                 <div class="sticky-footer p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl flex justify-between gap-3 flex-wrap font-bold text-sm" id="editFooter">
-                    <span>Toplam: ${exam.toplamSoru} soru · D:${exam.toplamDogru} · Y:${exam.toplamYanlis} · B:${exam.toplamBos}</span>
-                    <span class="text-indigo-600 dark:text-indigo-400">Net: ${exam.toplamNet.toFixed(2)}</span>
+                    <span>Toplam: ${exam.toplamSoru} soru · D:0 · Y:0 · B:0</span>
+                    <span class="text-indigo-600 dark:text-indigo-400">Net: 0.00</span>
                 </div>
-                <button onclick="saveGenelExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>
+                <div id="genelStep1CtaContainer">
+                    <button type="button" onclick="saveGenelExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px]"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>
+                </div>
             </div>
         </div>
     `;
@@ -1051,31 +1150,91 @@ export function editGenelExam(studentId, examId, exam) {
     const dogruInputs = document.querySelectorAll('.genel-dogru');
     const yanlisInputs = document.querySelectorAll('.genel-yanlis');
     const bosInputs = document.querySelectorAll('.genel-bos');
+    const examNameInput = document.getElementById('editExamName');
+
+    if (examNameInput) {
+        examNameInput.addEventListener('input', () => {
+            if (activeGeneralExamState) {
+                activeGeneralExamState.denemeAdi = examNameInput.value.trim();
+            }
+        });
+    }
 
     function updateDers(dogruInput, yanlisInput, bosInput, toplam) {
         let dogru = parseInt(dogruInput.value) || 0;
         let yanlis = parseInt(yanlisInput.value) || 0;
+        if (dogru < 0) dogru = 0;
         if (dogru > toplam) dogru = toplam;
+        if (yanlis < 0) yanlis = 0;
         if (yanlis > toplam - dogru) yanlis = toplam - dogru;
         dogruInput.value = dogru;
         yanlisInput.value = yanlis;
         bosInput.value = toplam - dogru - yanlis;
+
+        const dersKey = dogruInput.getAttribute('data-ders');
+        if (dersKey && activeGeneralExamState && activeGeneralExamState.allDersInputs) {
+            activeGeneralExamState.allDersInputs[dersKey] = {
+                dogru,
+                yanlis,
+                bos: toplam - dogru - yanlis
+            };
+        }
     }
 
     function updateAll() {
         let totalDogru = 0, totalYanlis = 0, totalBos = 0;
+        let fenDogru = 0, fenYanlis = 0, fenBos = 0, fenToplam = 0, hasFen = false;
+
         dogruInputs.forEach((inp, idx) => {
+            const dersKey = inp.getAttribute('data-ders');
             const toplam = parseInt(inp.getAttribute('data-toplam'));
             const yanlisInp = yanlisInputs[idx];
             const dogru = parseInt(inp.value) || 0;
             const yanlis = parseInt(yanlisInp.value) || 0;
+            const bos = toplam - dogru - yanlis;
+
             totalDogru += dogru;
             totalYanlis += yanlis;
-            totalBos += toplam - dogru - yanlis;
+            totalBos += bos;
+
+            if (dersKey === 'Fen Bilimleri') {
+                hasFen = true;
+                fenDogru = dogru;
+                fenYanlis = yanlis;
+                fenBos = bos;
+                fenToplam = toplam;
+            }
+
+            if (activeGeneralExamState && activeGeneralExamState.allDersInputs && dersKey) {
+                activeGeneralExamState.allDersInputs[dersKey] = { dogru, yanlis, bos };
+            }
         });
+
         const net = calculateNet(totalDogru, totalYanlis);
         const footer = document.getElementById('editFooter');
-        if (footer) footer.innerHTML = `<span>Toplam: ${exam.toplamSoru} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span><span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>`;
+        if (footer) {
+            footer.innerHTML = `<span>Toplam: ${exam.toplamSoru} soru · D:${totalDogru} · Y:${totalYanlis} · B:${totalBos}</span><span class="text-indigo-600 dark:text-indigo-400">Net: ${net.toFixed(2)}</span>`;
+        }
+
+        const ctaContainer = document.getElementById('genelStep1CtaContainer');
+        if (ctaContainer) {
+            if (hasFen && (fenYanlis + fenBos > 0)) {
+                ctaContainer.innerHTML = `
+                    <div class="flex flex-col sm:flex-row items-center gap-3 mt-4">
+                        <button type="button" onclick="saveGenelExamEdit('${studentId}', '${examId}')" class="btn-secondary w-full sm:w-1/3 py-3 min-h-[44px] order-2 sm:order-1">
+                            <i class="fas fa-save mr-1"></i> Sadece Sonucu Kaydet
+                        </button>
+                        <button type="button" id="btnGoToGeneralFenStep2" onclick="goToGeneralFenStep2('${studentId}', '${examId}')" class="btn-primary w-full sm:w-2/3 py-3 min-h-[44px] order-1 sm:order-2 font-bold shadow-sm">
+                            <i class="fas fa-arrow-right mr-1"></i> Fen Hata Analizine Devam
+                        </button>
+                    </div>
+                `;
+            } else {
+                ctaContainer.innerHTML = `
+                    <button type="button" onclick="saveGenelExamEdit('${studentId}', '${examId}')" class="btn-primary mt-4 w-full py-3 min-h-[44px] font-bold"><i class="fas fa-save mr-1"></i> Sonucu Kaydet</button>
+                `;
+            }
+        }
     }
 
     for (let i = 0; i < dogruInputs.length; i++) {
@@ -1096,8 +1255,9 @@ export function editGenelExam(studentId, examId, exam) {
     updateAll();
 }
 
-export async function saveGenelExamEdit(studentId, examId) {
-    const examName = document.getElementById('editExamName')?.value.trim();
+export async function saveGenelExamEdit(studentId, examId, fenAnalysisMap = null) {
+    const examNameInput = document.getElementById('editExamName');
+    const examName = examNameInput ? examNameInput.value.trim() : (activeGeneralExamState?.denemeAdi || '');
     if (!examName) {
         alert("Deneme adı girin");
         return;
@@ -1123,9 +1283,20 @@ export async function saveGenelExamEdit(studentId, examId) {
         const toplamSoru = item.adet;
         const dogruInput = document.querySelector(`.genel-dogru[data-ders="${dersKey}"]`);
         const yanlisInput = document.querySelector(`.genel-yanlis[data-ders="${dersKey}"]`);
-        if (!dogruInput) continue;
-        let dogru = parseInt(dogruInput.value) || 0;
-        let yanlis = parseInt(yanlisInput.value) || 0;
+        let dogru = 0;
+        let yanlis = 0;
+
+        if (dogruInput && yanlisInput) {
+            dogru = parseInt(dogruInput.value) || 0;
+            yanlis = parseInt(yanlisInput.value) || 0;
+        } else if (activeGeneralExamState?.allDersInputs?.[dersKey]) {
+            dogru = activeGeneralExamState.allDersInputs[dersKey].dogru;
+            yanlis = activeGeneralExamState.allDersInputs[dersKey].yanlis;
+        } else if (exam.dersSonuclari?.[dersKey]) {
+            dogru = exam.dersSonuclari[dersKey].dogru;
+            yanlis = exam.dersSonuclari[dersKey].yanlis;
+        }
+
         if (dogru > toplamSoru) dogru = toplamSoru;
         if (yanlis > toplamSoru - dogru) yanlis = toplamSoru - dogru;
         const bos = toplamSoru - dogru - yanlis;
@@ -1134,9 +1305,11 @@ export async function saveGenelExamEdit(studentId, examId) {
         toplamYanlis += yanlis;
         toplamBos += bos;
     }
+
     const net = calculateNet(toplamDogru, toplamYanlis);
     const updatedSorular = [];
     let soruIndex = 0;
+
     for (let item of dersBilgileri) {
         const dersKey = item.ders;
         const sonuc = dersSonuclari[dersKey];
@@ -1144,7 +1317,12 @@ export async function saveGenelExamEdit(studentId, examId) {
         let dogruKalan = sonuc.dogru;
         let yanlisKalan = sonuc.yanlis;
         let bosKalan = sonuc.bos;
+
         for (let i = 0; i < adet; i++) {
+            const globalIndex = soruIndex;
+            const prevQ = exam.sorular?.[globalIndex];
+            const actualSoruNo = prevQ?.soruNo || (globalIndex + 1);
+
             let durum = "";
             if (dogruKalan > 0) {
                 durum = "dogru";
@@ -1156,17 +1334,392 @@ export async function saveGenelExamEdit(studentId, examId) {
                 durum = "bos";
                 bosKalan--;
             }
-            updatedSorular.push({ soruNo: soruIndex + 1, konuAdi: dersKey, durum: durum, hataKodu: null });
+
+            let konuAdi = dersKey;
+            let hataKodu = null;
+
+            if (dersKey === 'Fen Bilimleri') {
+                if (durum === 'dogru') {
+                    konuAdi = prevQ?.konuAdi || dersKey;
+                    hataKodu = null;
+                } else {
+                    if (fenAnalysisMap && fenAnalysisMap.has(globalIndex)) {
+                        const mapped = fenAnalysisMap.get(globalIndex);
+                        konuAdi = mapped.konuAdi || dersKey;
+                        hataKodu = mapped.hataKodu || null;
+                    } else if (prevQ && prevQ.konuAdi && prevQ.konuAdi !== 'Fen Bilimleri') {
+                        konuAdi = prevQ.konuAdi;
+                        hataKodu = prevQ.hataKodu || null;
+                    } else {
+                        konuAdi = dersKey;
+                        hataKodu = prevQ?.hataKodu || null;
+                    }
+                }
+            }
+
+            updatedSorular.push({
+                soruNo: actualSoruNo,
+                konuAdi: konuAdi,
+                durum: durum,
+                hataKodu: hataKodu
+            });
             soruIndex++;
         }
     }
-    const updatedExam = { ...exam, denemeAdi: examName, sorular: updatedSorular, dersSonuclari: dersSonuclari, toplamDogru, toplamYanlis, toplamBos, toplamNet: net, toplamSoru: exam.toplamSoru };
+
+    const updatedExam = {
+        ...exam,
+        denemeAdi: examName,
+        sorular: updatedSorular,
+        dersSonuclari: dersSonuclari,
+        toplamDogru,
+        toplamYanlis,
+        toplamBos,
+        toplamNet: net,
+        toplamSoru: exam.toplamSoru
+    };
+
     const res = await updateStudentArrayRecord(studentId, 'denemeler', exam.id, updatedExam);
     if (res && !res.ok && res.blockedOffline) {
         alert(res.message);
         return;
     }
+
+    activeGeneralExamState = null;
+    window._activeGeneralExamState = null;
+
     if (window.renderStudentPanel) window.renderStudentPanel(studentId);
+}
+
+export function goToGeneralFenStep2(studentId, examId) {
+    const examNameInput = document.getElementById('editExamName');
+    const examName = examNameInput ? examNameInput.value.trim() : (activeGeneralExamState?.denemeAdi || '');
+    if (!examName) {
+        alert("Deneme adı girin");
+        return;
+    }
+
+    const students = loadStudentsData();
+    const student = students.find(s => s.id === studentId);
+    const exam = student?.denemeler?.find(e => e.id === examId);
+    if (!student || !exam) return;
+
+    if (!activeGeneralExamState) {
+        editGenelExam(studentId, examId, exam);
+    }
+    activeGeneralExamState.denemeAdi = examName;
+
+    // Sync input values from Step 1 DOM into activeGeneralExamState.allDersInputs
+    const dersBilgileri = exam.dersBilgileri || [];
+    for (let item of dersBilgileri) {
+        const dersKey = item.ders;
+        const toplamSoru = item.adet;
+        const dogruInput = document.querySelector(`.genel-dogru[data-ders="${dersKey}"]`);
+        const yanlisInput = document.querySelector(`.genel-yanlis[data-ders="${dersKey}"]`);
+        if (dogruInput && yanlisInput) {
+            let dogru = parseInt(dogruInput.value) || 0;
+            let yanlis = parseInt(yanlisInput.value) || 0;
+            if (dogru > toplamSoru) dogru = toplamSoru;
+            if (yanlis > toplamSoru - dogru) yanlis = toplamSoru - dogru;
+            const bos = toplamSoru - dogru - yanlis;
+            activeGeneralExamState.allDersInputs[dersKey] = { dogru, yanlis, bos };
+            activeGeneralExamState.dersSonuclari[dersKey] = { dogru, yanlis, bos };
+        }
+    }
+
+    const fenSonuc = activeGeneralExamState.allDersInputs['Fen Bilimleri'];
+    if (!fenSonuc || (fenSonuc.yanlis + fenSonuc.bos === 0)) {
+        saveGenelExamEdit(studentId, examId);
+        return;
+    }
+
+    // Determine Fen question indices in exam.sorular
+    const fenIndices = getGeneralExamFenQuestionIndexes(exam);
+    const fenTotal = fenIndices.length;
+    let targetDogru = fenSonuc.dogru;
+    let targetYanlis = fenSonuc.yanlis;
+    let targetBos = fenSonuc.bos;
+
+    // Check if existing exam.sorular matches target distribution
+    const existingFenQs = fenIndices.map(idx => exam.sorular?.[idx]).filter(Boolean);
+    const existingDCount = existingFenQs.filter(q => q.durum === 'dogru').length;
+    const existingYCount = existingFenQs.filter(q => q.durum === 'yanlis').length;
+    const existingBCount = existingFenQs.filter(q => q.durum === 'bos').length;
+
+    const matchesExisting = (existingDCount === targetDogru && existingYCount === targetYanlis && existingBCount === targetBos);
+
+    // Existing memory map if user already selected topics in this session
+    const inMemoryMap = new Map();
+    if (Array.isArray(activeGeneralExamState.fenQuestionsToAnalyze)) {
+        activeGeneralExamState.fenQuestionsToAnalyze.forEach(q => {
+            inMemoryMap.set(q.globalIndex, { konuAdi: q.konuAdi, hataKodu: q.hataKodu });
+        });
+    }
+
+    const fenQuestions = [];
+    let dRemaining = targetDogru;
+    let yRemaining = targetYanlis;
+    let bRemaining = targetBos;
+
+    for (let i = 0; i < fenTotal; i++) {
+        const globalIndex = fenIndices[i];
+        const existingQ = exam.sorular?.[globalIndex];
+        const actualSoruNo = existingQ?.soruNo || (globalIndex + 1);
+
+        let durum = 'bos';
+        if (matchesExisting && existingQ?.durum) {
+            durum = existingQ.durum;
+        } else {
+            if (dRemaining > 0) {
+                durum = 'dogru';
+                dRemaining--;
+            } else if (yRemaining > 0) {
+                durum = 'yanlis';
+                yRemaining--;
+            } else {
+                durum = 'bos';
+                bRemaining--;
+            }
+        }
+
+        // Determine konuAdi and hataKodu
+        let konuAdi = '';
+        let hataKodu = null;
+
+        if (inMemoryMap.has(globalIndex)) {
+            const mem = inMemoryMap.get(globalIndex);
+            konuAdi = mem.konuAdi || '';
+            hataKodu = mem.hataKodu || null;
+        } else if (existingQ) {
+            if (existingQ.konuAdi && existingQ.konuAdi !== 'Fen Bilimleri') {
+                konuAdi = existingQ.konuAdi;
+            }
+            if (existingQ.hataKodu) {
+                hataKodu = existingQ.hataKodu;
+            }
+        }
+
+        fenQuestions.push({
+            globalIndex,
+            soruNo: actualSoruNo,
+            durum,
+            konuAdi,
+            hataKodu
+        });
+    }
+
+    activeGeneralExamState.fenQuestions = fenQuestions;
+    activeGeneralExamState.fenQuestionsToAnalyze = fenQuestions.filter(q => q.durum === 'yanlis' || q.durum === 'bos');
+    activeGeneralExamState.currentStep = 2;
+
+    renderGeneralFenStep2(studentId, examId);
+}
+
+export function renderGeneralFenStep2(studentId, examId) {
+    const studentGrade = activeGeneralExamState.sinif || '8';
+    let fenKonulari = getKonuListesiBySinifAndDers(studentGrade, 'Fen Bilimleri') || [];
+    if (fenKonulari.length === 0) fenKonulari = getKonuListesiBySinifAndDers('8', 'Fen Bilimleri') || [];
+
+    const fenSonuc = activeGeneralExamState.allDersInputs['Fen Bilimleri'] || { dogru: 0, yanlis: 0, bos: 0 };
+    const fenDogru = fenSonuc.dogru;
+    const fenYanlis = fenSonuc.yanlis;
+    const fenBos = fenSonuc.bos;
+    const fenToplam = fenDogru + fenYanlis + fenBos;
+    const fenNet = calculateNet(fenDogru, fenYanlis);
+
+    const questionsToAnalyze = activeGeneralExamState.fenQuestionsToAnalyze || [];
+
+    let analysisCards = '';
+    questionsToAnalyze.forEach((q, idx) => {
+        const durum = q.durum;
+        analysisCards += `
+            <div class="app-panel p-4 genel-fen-hata-karti border border-gray-200 dark:border-gray-700 rounded-xl transition-all mb-3" id="genel-fen-card-${idx}" data-index="${idx}">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
+                    <span class="font-bold text-sm text-gray-900 dark:text-gray-100">${q.soruNo}. Soru</span>
+                    <span class="text-xs px-2.5 py-1 rounded-full font-bold ${durum === 'yanlis' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700'}">
+                        ${durum === 'yanlis' ? 'Yanlış' : 'Boş'}
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label for="genel-fen-konu-${idx}" class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Yapılamayan Konu <span class="text-red-500">*</span></label>
+                        <select id="genel-fen-konu-${idx}" class="student-form-input genel-fen-konu-select min-h-[44px] w-full text-sm" data-index="${idx}" onchange="onGenelFenSelectChange(${idx})">
+                            <option value="">-- Konu Seçin --</option>
+                            ${fenKonulari.map(k => {
+                                const isSelected = (q.konuAdi === k) || (q.konuAdi && String(q.konuAdi).trim().toLocaleLowerCase('tr-TR') === String(k).trim().toLocaleLowerCase('tr-TR'));
+                                return `<option value="${escapeHtml(k)}" ${isSelected ? 'selected' : ''}>${escapeHtml(k)}</option>`;
+                            }).join('')}
+                            ${(q.konuAdi && q.konuAdi !== 'Fen Bilimleri' && !fenKonulari.some(k => k === q.konuAdi || String(k).trim().toLocaleLowerCase('tr-TR') === String(q.konuAdi).trim().toLocaleLowerCase('tr-TR'))) ? `<option value="${escapeHtml(q.konuAdi)}" selected>${escapeHtml(q.konuAdi)}</option>` : ''}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="genel-fen-hata-${idx}" class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Hata Nedeni <span class="text-red-500">*</span></label>
+                        <select id="genel-fen-hata-${idx}" class="student-form-input genel-fen-hata-select min-h-[44px] w-full text-sm" data-index="${idx}" onchange="onGenelFenSelectChange(${idx})">
+                            <option value="">-- Hata Kodu Seçin --</option>
+                            ${HATA_KODLARI.map(h => `<option value="${escapeHtml(h.kod)}" ${q.hataKodu === h.kod ? 'selected' : ''}>${escapeHtml(h.kod)} - ${escapeHtml(h.aciklama)}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    const html = `
+        <div class="app-page">
+            <header class="app-page-header">
+                <div>
+                    <button type="button" onclick="goToGeneralStep1('${studentId}', '${examId}')" class="btn-secondary min-h-[44px] px-4 mb-3"><i class="fas fa-arrow-left mr-1"></i> Genel Sonuca Dön</button>
+                    <h2 class="app-page-title">Fen Bilimleri Hata Analizi</h2>
+                    <p class="app-page-subtitle">${escapeHtml(activeGeneralExamState.denemeAdi)} · 2. Adım: Yanlış ve boş Fen Bilimleri soruları için konu ve hata nedenini belirleyin.</p>
+                </div>
+            </header>
+
+            <!-- Step Indicator -->
+            <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div class="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 cursor-pointer" onclick="goToGeneralStep1('${studentId}', '${examId}')">
+                    <span class="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center justify-center text-xs"><i class="fas fa-check text-[10px]"></i></span>
+                    <span>1. Genel Sonuç</span>
+                </div>
+                <div class="flex-1 h-0.5 mx-3 bg-indigo-200 dark:bg-indigo-800"></div>
+                <div class="text-indigo-400 text-center"><i class="fas fa-chevron-right text-xs"></i></div>
+                <div class="flex-1 h-0.5 mx-3 bg-indigo-200 dark:bg-indigo-800"></div>
+                <div class="flex items-center gap-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    <span class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">2</span>
+                    <span>Fen Hata Analizi</span>
+                </div>
+            </div>
+
+            <!-- Subject Summary Card -->
+            <div class="app-panel p-4 mb-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Ders Özeti</span>
+                        <h4 class="text-base font-extrabold text-gray-900 dark:text-white">Fen Bilimleri</h4>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-sm">
+                        <span class="px-2.5 py-1 rounded-lg bg-white dark:bg-gray-800 font-semibold border border-gray-200 dark:border-gray-700">Toplam: ${fenToplam} soru</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 font-bold border border-green-200 dark:border-green-800">${fenDogru}D</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-bold border border-red-200 dark:border-red-800">${fenYanlis}Y</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold border border-gray-300 dark:border-gray-700">${fenBos}B</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-black border border-indigo-200 dark:border-indigo-800">${fenNet.toFixed(2)} Net</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800"><i class="fas fa-exclamation-triangle text-xs mr-1"></i>${questionsToAnalyze.length} analiz edilecek soru</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Validation alert -->
+            <div id="fenValidationAlert" class="hidden p-3 mb-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium items-center gap-2">
+                <i class="fas fa-circle-exclamation text-base"></i>
+                <span></span>
+            </div>
+
+            <!-- Analysis Cards Container -->
+            <div class="space-y-3 md:max-h-[600px] md:overflow-auto mb-4">
+                ${analysisCards}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row items-center gap-3 mt-4">
+                <button type="button" onclick="goToGeneralStep1('${studentId}', '${examId}')" class="btn-secondary w-full sm:w-1/3 py-3 min-h-[44px] order-2 sm:order-1">
+                    <i class="fas fa-arrow-left mr-1"></i> Genel Sonuca Dön
+                </button>
+                <button type="button" onclick="saveGenelExamWithFenAnalysis('${studentId}', '${examId}')" class="btn-primary w-full sm:w-2/3 py-3 min-h-[44px] order-1 sm:order-2 font-bold shadow-sm">
+                    <i class="fas fa-save mr-1"></i> Sonucu ve Fen Hata Analizini Kaydet
+                </button>
+            </div>
+        </div>
+    `;
+    document.getElementById("dynamic-content").innerHTML = html;
+}
+
+export function goToGeneralStep1(studentId, examId) {
+    if (activeGeneralExamState && activeGeneralExamState.fenQuestionsToAnalyze) {
+        activeGeneralExamState.fenQuestionsToAnalyze.forEach((q, idx) => {
+            const konuSelect = document.querySelector(`.genel-fen-konu-select[data-index="${idx}"]`);
+            const hataSelect = document.querySelector(`.genel-fen-hata-select[data-index="${idx}"]`);
+            if (konuSelect && konuSelect.value) q.konuAdi = konuSelect.value.trim();
+            if (hataSelect && hataSelect.value) q.hataKodu = hataSelect.value.trim();
+        });
+        activeGeneralExamState.currentStep = 1;
+    }
+    const students = loadStudentsData();
+    const student = students.find(s => s.id === studentId);
+    const exam = student?.denemeler?.find(e => e.id === examId);
+    if (!student || !exam) return;
+    editGenelExam(studentId, examId, exam, true);
+}
+
+export function onGenelFenSelectChange(idx) {
+    const card = document.getElementById(`genel-fen-card-${idx}`);
+    const konuSelect = document.querySelector(`.genel-fen-konu-select[data-index="${idx}"]`);
+    const hataSelect = document.querySelector(`.genel-fen-hata-select[data-index="${idx}"]`);
+    if (card && konuSelect && hataSelect && konuSelect.value.trim() && hataSelect.value.trim()) {
+        card.classList.remove('border-red-500', 'bg-red-50/20', 'dark:bg-red-950/20');
+    }
+}
+
+export async function saveGenelExamWithFenAnalysis(studentId, examId) {
+    if (!activeGeneralExamState || activeGeneralExamState.examId !== examId) {
+        return;
+    }
+
+    const fenQuestionsToAnalyze = activeGeneralExamState.fenQuestionsToAnalyze || [];
+    let missingCount = 0;
+    let firstMissingCard = null;
+    const fenAnalysisMap = new Map();
+
+    fenQuestionsToAnalyze.forEach((q, idx) => {
+        const card = document.getElementById(`genel-fen-card-${idx}`);
+        const konuSelect = document.querySelector(`.genel-fen-konu-select[data-index="${idx}"]`);
+        const hataSelect = document.querySelector(`.genel-fen-hata-select[data-index="${idx}"]`);
+        const konu = konuSelect ? konuSelect.value.trim() : "";
+        const hata = hataSelect ? hataSelect.value.trim() : "";
+
+        if (!konu || !hata) {
+            missingCount++;
+            if (card) {
+                card.classList.add('border-red-500', 'bg-red-50/20', 'dark:bg-red-950/20');
+                if (!firstMissingCard) firstMissingCard = card;
+            }
+        } else {
+            if (card) {
+                card.classList.remove('border-red-500', 'bg-red-50/20', 'dark:bg-red-950/20');
+            }
+            q.konuAdi = konu;
+            q.hataKodu = hata;
+            fenAnalysisMap.set(q.globalIndex, { konuAdi: konu, hataKodu: hata });
+        }
+    });
+
+    const alertBox = document.getElementById('fenValidationAlert');
+    if (missingCount > 0) {
+        const msg = `${missingCount} Fen hata kaydı eksik. Lütfen yanlış/boş sorular için konu ve hata nedenini seçin.`;
+        if (alertBox) {
+            const span = alertBox.querySelector('span') || alertBox;
+            span.textContent = msg;
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('flex');
+        }
+        alert(msg);
+        if (firstMissingCard && typeof firstMissingCard.scrollIntoView === 'function') {
+            firstMissingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+    }
+
+    if (alertBox) {
+        alertBox.classList.add('hidden');
+        alertBox.classList.remove('flex');
+    }
+
+    await saveGenelExamEdit(studentId, examId, fenAnalysisMap);
+}
+
+if (typeof window !== 'undefined') {
+    window.goToGeneralFenStep2 = goToGeneralFenStep2;
+    window.goToGeneralStep1 = goToGeneralStep1;
+    window.saveGenelExamWithFenAnalysis = saveGenelExamWithFenAnalysis;
+    window.onGenelFenSelectChange = onGenelFenSelectChange;
 }
 
 export function isExamResultPending(exam) {
