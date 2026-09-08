@@ -1,7 +1,7 @@
 // ==================== EXAM ANALYSIS & MANAGEMENT MODULE ====================
 
 import { db, auth, isFirebaseActive } from './firebase-config.js';
-import { store, loadStudentsData, saveStudentsData, getKonuListesiBySinif, getKonuListesiBySinifAndDers, GENEL_DERSLER_GORUNUM, GENEL_DERSLER_KEY, HATA_KODLARI, POPULER_LISELER, getErrorColor, calculateNet, escapeHtml, loadSchedule, loadDersKayitlari, getStudentOdevler, addStudentArrayRecord, updateStudentArrayRecord, deleteStudentArrayRecord, bulkAddStudentExam, OFFLINE_BLOCKED_ARRAY_MESSAGE } from './store.js';
+import { store, loadStudentsData, saveStudentsData, getKonuListesiBySinif, getKonuListesiBySinifAndDers, CURRICULUM_UNITS, GENEL_DERSLER_GORUNUM, GENEL_DERSLER_KEY, HATA_KODLARI, POPULER_LISELER, getErrorColor, calculateNet, escapeHtml, loadSchedule, loadDersKayitlari, getStudentOdevler, addStudentArrayRecord, updateStudentArrayRecord, deleteStudentArrayRecord, bulkAddStudentExam, OFFLINE_BLOCKED_ARRAY_MESSAGE } from './store.js';
 import { showSyncStatus } from './ui-helpers.js';
 import { MANUAL_RESOURCE_VALUE, readResourceSelection, resourceOptionsHtml, toggleManualResource } from './resource-books.js';
 
@@ -494,12 +494,80 @@ export async function saveFenExamWithAnalysis(studentId, examId) {
     await saveBransExamEdit(studentId, examId);
 }
 
+/**
+ * Determines whether a given exam is a Science ("Fen Bilimleri") branch exam.
+ * Supports canonical new records (exam.ders === 'Fen Bilimleri') and provides
+ * safe read-time compatibility for legacy branch exams where exam.ders is undefined/missing.
+ *
+ * @param {Object} exam
+ * @param {Object} [student]
+ * @returns {boolean}
+ */
+export function isFenBranchExam(exam, student) {
+    if (!exam || exam.tip !== 'branş') return false;
+
+    // A. Primary / Canonical Check
+    if (exam.ders === 'Fen Bilimleri') return true;
+
+    // B. Legacy Fallback (only when exam.ders is falsy / empty / legacy)
+    if (!exam.ders) {
+        const grade = String(exam.sinif || student?.sinif || '8').trim();
+        const canonicalFenTopics = getKonuListesiBySinifAndDers(grade, 'Fen Bilimleri');
+        const normalize = (s) => String(s || '').trim().toLocaleLowerCase('tr-TR');
+
+        const fenSet = new Set((Array.isArray(canonicalFenTopics) ? canonicalFenTopics : []).map(normalize));
+
+        // Also include grade-specific Fen curriculum units and unit topics from CURRICULUM_UNITS
+        const gradeUnits = (typeof CURRICULUM_UNITS !== 'undefined' && CURRICULUM_UNITS?.[grade]?.['Fen Bilimleri']) || [];
+        for (const u of gradeUnits) {
+            if (u.unite) fenSet.add(normalize(u.unite));
+            if (Array.isArray(u.konular)) {
+                for (const k of u.konular) fenSet.add(normalize(k));
+            }
+        }
+
+        // Fallback to Grade 8 Fen set if grade-specific set is empty
+        if (fenSet.size === 0) {
+            const fallback8 = getKonuListesiBySinifAndDers('8', 'Fen Bilimleri');
+            if (Array.isArray(fallback8)) fallback8.forEach(t => fenSet.add(normalize(t)));
+            const fallbackUnits = (typeof CURRICULUM_UNITS !== 'undefined' && CURRICULUM_UNITS?.['8']?.['Fen Bilimleri']) || [];
+            for (const u of fallbackUnits) {
+                if (u.unite) fenSet.add(normalize(u.unite));
+                if (Array.isArray(u.konular)) {
+                    for (const k of u.konular) fenSet.add(normalize(k));
+                }
+            }
+        }
+
+        // Check 1: exam.konu
+        if (exam.konu) {
+            const normKonu = normalize(exam.konu);
+            if (normKonu && fenSet.has(normKonu)) {
+                return true;
+            }
+        }
+
+        // Check 2: questions topic evidence (sorular[].konuAdi)
+        if (Array.isArray(exam.sorular) && exam.sorular.length > 0) {
+            const hasMatchingTopic = exam.sorular.some(s => {
+                const normSoruKonu = normalize(s.konuAdi);
+                return normSoruKonu && fenSet.has(normSoruKonu);
+            });
+            if (hasMatchingTopic) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 export function editBransExam(studentId, examId, exam) {
     const students = loadStudentsData();
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    const isFenExam = exam.tip === 'branş' && exam.ders === 'Fen Bilimleri';
+    const isFenExam = isFenBranchExam(exam, student);
     const studentGrade = exam.sinif || student.sinif || '8';
 
     activeExamState = {
@@ -512,7 +580,7 @@ export function editBransExam(studentId, examId, exam) {
         sorular: (exam.sorular || []).map((s, idx) => ({
             soruNo: s.soruNo || (idx + 1),
             durum: s.durum || 'bos',
-            konuAdi: s.konuAdi || (isFenExam ? '' : (exam.konu || '')),
+            konuAdi: s.konuAdi || exam.konu || '',
             hataKodu: s.hataKodu || null
         }))
     };
@@ -750,7 +818,11 @@ export function editBransExam(studentId, examId, exam) {
                             <label for="fen-konu-${i}" class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Yapılamayan Konu <span class="text-red-500">*</span></label>
                             <select id="fen-konu-${i}" class="student-form-input fen-konu-select min-h-[44px] w-full text-sm" data-index="${i}" onchange="onFenSelectChange(${i})">
                                 <option value="">-- Konu Seçin --</option>
-                                ${fenKonulari.map(k => `<option value="${escapeHtml(k)}" ${soru.konuAdi === k ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('')}
+                                ${fenKonulari.map(k => {
+                                    const isSelected = (soru.konuAdi === k) || (soru.konuAdi && String(soru.konuAdi).trim().toLocaleLowerCase('tr-TR') === String(k).trim().toLocaleLowerCase('tr-TR'));
+                                    return `<option value="${escapeHtml(k)}" ${isSelected ? 'selected' : ''}>${escapeHtml(k)}</option>`;
+                                }).join('')}
+                                ${(soru.konuAdi && !fenKonulari.some(k => k === soru.konuAdi || String(k).trim().toLocaleLowerCase('tr-TR') === String(soru.konuAdi).trim().toLocaleLowerCase('tr-TR'))) ? `<option value="${escapeHtml(soru.konuAdi)}" selected>${escapeHtml(soru.konuAdi)}</option>` : ''}
                             </select>
                         </div>
                         <div>
@@ -857,7 +929,7 @@ export async function saveBransExamEdit(studentId, examId) {
         return;
     }
     const exam = students[sIdx].denemeler[examIndex];
-    const isFenExam = exam.tip === 'branş' && exam.ders === 'Fen Bilimleri';
+    const isFenExam = isFenBranchExam(exam, students[sIdx]);
     const soruSayisi = exam.sorular.length;
     let toplamDogru = 0, toplamYanlis = 0, toplamBos = 0;
     const updatedSorular = [];
@@ -1425,6 +1497,7 @@ window.updateTopicExamOptions = updateTopicExamOptions;
 window.toggleTopicExamManualTopic = toggleTopicExamManualTopic;
 window.toggleTopicExamManualResource = toggleTopicExamManualResource;
 window.isExamResultPending = isExamResultPending;
+window.isFenBranchExam = isFenBranchExam;
 window.goToFenHataAnaliziStep = goToFenHataAnaliziStep;
 window.goToFenStep1 = goToFenStep1;
 window.onFenSelectChange = onFenSelectChange;
