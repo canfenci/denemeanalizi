@@ -242,6 +242,85 @@ export function renderCockpitExamsSection(student, sortedExams) {
     `;
 }
 
+export function calculateStudentHomeworkPerformance(student, homeworks = null) {
+    const rawHomeworks = Array.isArray(homeworks)
+        ? homeworks
+        : (Array.isArray(student?.odevler) ? student.odevler : []);
+
+    const completed = rawHomeworks
+        .filter(h => {
+            if (!h || h.durum !== 'tamamlandi') return false;
+            const hasScore = (h.dogru !== null && h.dogru !== undefined) || (h.yanlis !== null && h.yanlis !== undefined);
+            const hasErrors = (Array.isArray(h.yanlisAnalizi) && h.yanlisAnalizi.length > 0) ||
+                              (Array.isArray(h.yanlisKonular) && h.yanlisKonular.length > 0);
+            return hasScore || hasErrors;
+        })
+        .map(h => {
+            const correct = Number(h.dogru) || 0;
+            const wrong = Number(h.yanlis) || 0;
+            const net = Number(Math.max(0, correct - (wrong / 3)).toFixed(2));
+            const totalQuestions = Math.max(1, Number(h.toplamSoru) || (correct + wrong + (Number(h.bos) || 0)) || (correct + wrong) || 1);
+            const rawPercent = (net / totalQuestions) * 100;
+            const successPercent = Number(Math.max(0, Math.min(100, rawPercent)).toFixed(1));
+            const date = h.bitisTarihi || h.baslamaTarihi || h.tarih || '';
+            const title = h.calismaDetayi || h.konu || 'Ödev';
+            return {
+                id: h.id || '',
+                date,
+                formattedDate: formatTimelineDate(date),
+                title,
+                correct,
+                wrong,
+                net,
+                totalQuestions,
+                successPercent,
+                rawHomework: h
+            };
+        })
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+    const count = completed.length;
+    const averageNet = count ? Number((completed.reduce((sum, h) => sum + h.net, 0) / count).toFixed(2)) : null;
+    const latestNet = count ? completed[count - 1].net : null;
+    const averageSuccessPercent = count ? Number((completed.reduce((sum, h) => sum + h.successPercent, 0) / count).toFixed(1)) : null;
+    const latestSuccessPercent = count ? completed[count - 1].successPercent : null;
+    const maxSuccessPercent = count ? Math.max(...completed.map(h => h.successPercent)) : null;
+
+    let trend = null;
+    let trendLabel = 'Trend için yeterli ödev yok';
+    let deltaPercent = null;
+
+    if (count >= 2) {
+        const first = completed[0].successPercent;
+        const last = completed[count - 1].successPercent;
+        deltaPercent = Number((last - first).toFixed(1));
+        if (deltaPercent >= 2.0) {
+            trend = 'improving';
+            trendLabel = 'Yükseliş';
+        } else if (deltaPercent <= -2.0) {
+            trend = 'declining';
+            trendLabel = 'Düşüş';
+        } else {
+            trend = 'stable';
+            trendLabel = 'Stabil';
+        }
+    }
+
+    return {
+        chronological: completed,
+        totalCount: rawHomeworks.length,
+        completedCount: count,
+        averageNet,
+        latestNet,
+        averageSuccessPercent,
+        latestSuccessPercent,
+        maxSuccessPercent,
+        trend,
+        trendLabel,
+        deltaPercent
+    };
+}
+
 export function calculateStudentSchoolExamPerformance(student) {
     const rawExams = Array.isArray(student?.denemeler) ? student.denemeler : [];
     const sortedExams = rawExams
@@ -277,6 +356,26 @@ export function calculateStudentSchoolExamPerformance(student) {
         genelTrendDelta = Number((first - second).toFixed(2));
     }
 
+    const genelChronological = [...genelCompleted].reverse();
+    let genelTrend = null;
+    let genelTrendLabel = 'Trend için yeterli deneme yok';
+    let genelChronologicalDelta = null;
+    if (genelChronological.length >= 2) {
+        const gFirst = Number(genelChronological[0].toplamNet) || 0;
+        const gLast = Number(genelChronological.at(-1).toplamNet) || 0;
+        genelChronologicalDelta = Number((gLast - gFirst).toFixed(2));
+        if (genelChronologicalDelta >= 1.25) {
+            genelTrend = 'improving';
+            genelTrendLabel = 'Yükseliş';
+        } else if (genelChronologicalDelta <= -1.25) {
+            genelTrend = 'declining';
+            genelTrendLabel = 'Düşüş';
+        } else {
+            genelTrend = 'stable';
+            genelTrendLabel = 'Stabil';
+        }
+    }
+
     // Branş Deneme Özeti
     const bransCompleted = bransExams.filter(e => !isExamResultPending(e));
     const bransLatest = bransCompleted.length > 0 ? bransCompleted[0] : (bransExams.length > 0 ? bransExams[0] : null);
@@ -289,6 +388,26 @@ export function calculateStudentSchoolExamPerformance(student) {
     const bransMaxNet = bransCompleted.length > 0
         ? Math.max(...bransCompleted.map(e => Number(e.toplamNet) || 0))
         : (bransExams.length > 0 && bransExams[0].toplamNet !== undefined ? Number(bransExams[0].toplamNet) : null);
+
+    const bransChronological = [...bransCompleted].reverse();
+    let bransTrend = null;
+    let bransTrendLabel = 'Trend için yeterli deneme yok';
+    let bransChronologicalDelta = null;
+    if (bransChronological.length >= 2) {
+        const bFirst = Number(bransChronological[0].toplamNet) || 0;
+        const bLast = Number(bransChronological.at(-1).toplamNet) || 0;
+        bransChronologicalDelta = Number((bLast - bFirst).toFixed(2));
+        if (bransChronologicalDelta >= 1.0) {
+            bransTrend = 'improving';
+            bransTrendLabel = 'Yükseliş';
+        } else if (bransChronologicalDelta <= -1.0) {
+            bransTrend = 'declining';
+            bransTrendLabel = 'Düşüş';
+        } else {
+            bransTrend = 'stable';
+            bransTrendLabel = 'Stabil';
+        }
+    }
 
     // Konu ve Hata Kodu Analizi (Yanlış + Boş)
     const topicMap = new Map();
@@ -394,15 +513,23 @@ export function calculateStudentSchoolExamPerformance(student) {
             latestNet: genelLatestNet,
             averageNet: genelAvgNet,
             maxNet: genelMaxNet,
-            trendDelta: genelTrendDelta
+            trendDelta: genelTrendDelta,
+            trend: genelTrend,
+            trendLabel: genelTrendLabel,
+            chronologicalDelta: genelChronologicalDelta
         },
         bransSummary: {
             totalCount: bransExams.length,
             completedCount: bransCompleted.length,
             latestNet: bransLatestNet,
             averageNet: bransAvgNet,
-            maxNet: bransMaxNet
+            maxNet: bransMaxNet,
+            trend: bransTrend,
+            trendLabel: bransTrendLabel,
+            chronologicalDelta: bransChronologicalDelta
         },
+        genelChronological,
+        bransChronological,
         weakTopics,
         errorReasons,
         analyzedCount,
@@ -427,6 +554,7 @@ export function renderCockpitPerformanceTab(student, homeworks, perfSubTab, sort
 
     if (perfSubTab === 'homework') {
         const hwInsights = buildHomeworkPerformanceInsights(student, homeworks);
+        const hwPerf = calculateStudentHomeworkPerformance(student, homeworks);
         const todayStr = new Date().toISOString().slice(0, 10);
         const missingHwCount = homeworks.filter(h => h && (h.durum === 'yapilmadi' || h.durum === 'eksik')).length;
         const overdueHwCount = homeworks.filter(h => h && h.durum !== 'tamamlandi' && h.bitisTarihi && h.bitisTarihi < todayStr).length;
@@ -465,6 +593,55 @@ export function renderCockpitPerformanceTab(student, homeworks, perfSubTab, sort
                         <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Ortalama Net</p>
                         <p class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${hwInsights.summary.averageNet !== null ? `${hwInsights.summary.averageNet} net` : '—'}</p>
                         <p class="text-xs text-gray-500 mt-0.5">Ödev net ortalaması</p>
+                    </div>
+                </div>
+
+                <!-- Ödev Performansı Grafiği -->
+                <div class="app-panel p-5 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+                        <div>
+                            <h4 class="font-black text-base text-gray-900 dark:text-white">Ödev Performansı</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">Tamamlanan ödevlerin normalize başarı yüzdesi (% Doğru/Net)</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            ${hwPerf.latestSuccessPercent !== null ? `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                    Son Başarı: %${hwPerf.latestSuccessPercent}
+                                </span>
+                            ` : ''}
+                            ${hwPerf.averageSuccessPercent !== null ? `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    Ortalama Başarı: %${hwPerf.averageSuccessPercent}
+                                </span>
+                            ` : ''}
+                            ${hwPerf.maxSuccessPercent !== null ? `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                    En Yüksek Başarı: %${hwPerf.maxSuccessPercent}
+                                </span>
+                            ` : ''}
+                            ${hwPerf.chronological.length >= 2 ? `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                    hwPerf.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' :
+                                    (hwPerf.trend === 'declining' ? 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800' :
+                                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700')
+                                }">
+                                    <i class="fas ${hwPerf.trend === 'improving' ? 'fa-arrow-trend-up text-emerald-600' : (hwPerf.trend === 'declining' ? 'fa-arrow-trend-down text-red-600' : 'fa-minus text-gray-500')} mr-1"></i>
+                                    ${hwPerf.trendLabel}
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="h-64 mt-2">
+                        ${hwPerf.chronological.length >= 2 ? `
+                            <canvas id="cockpitHomeworkPerfChart" aria-label="Ödev başarı yüzdesi gelişim grafiği"></canvas>
+                        ` : `
+                            <div class="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 dark:border-gray-700 p-6">
+                                <div>
+                                    <i class="fas fa-chart-line text-2xl text-gray-300 dark:text-gray-600 mb-2"></i>
+                                    <p>Ödev gelişimini göstermek için en az 2 tamamlanmış ödev gerekli.</p>
+                                </div>
+                            </div>
+                        `}
                     </div>
                 </div>
 
@@ -519,7 +696,7 @@ export function renderCockpitPerformanceTab(student, homeworks, perfSubTab, sort
                             `).join('') : `
                                 <div class="py-8 text-center text-xs text-gray-400">
                                     <i class="fas fa-chart-pie text-2xl text-indigo-500 mb-2"></i>
-                                    <p>Henüz kaydedilmiş hata nedeni dağılımı yok.</p>
+                                    <p>Hata analizi yapılmış kayıt bulunmuyor.</p>
                                 </div>
                             `}
                         </div>
@@ -577,6 +754,40 @@ export function renderCockpitPerformanceTab(student, homeworks, perfSubTab, sort
                         <p class="text-xs text-gray-500 mt-0.5">${examPerf.genelSummary.trendDelta !== null ? (examPerf.genelSummary.trendDelta >= 0 ? 'Son denemede artış' : 'Son denemede düşüş') : 'Yeterli veri yok'}</p>
                     </div>
                 </div>
+
+                <!-- Genel Deneme Net Gelişimi Grafiği -->
+                <div class="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                        <div>
+                            <h4 class="font-black text-base text-gray-900 dark:text-white">Net Gelişimi</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">90 soru üzerinden genel deneme netlerinin zaman içindeki değişimi</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            ${examPerf.genelChronological.length >= 2 ? `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                    examPerf.genelSummary.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' :
+                                    (examPerf.genelSummary.trend === 'declining' ? 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800' :
+                                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700')
+                                }">
+                                    <i class="fas ${examPerf.genelSummary.trend === 'improving' ? 'fa-arrow-trend-up text-emerald-600' : (examPerf.genelSummary.trend === 'declining' ? 'fa-arrow-trend-down text-red-600' : 'fa-minus text-gray-500')} mr-1"></i>
+                                    ${examPerf.genelSummary.trendLabel}
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="h-64 mt-2">
+                        ${examPerf.genelChronological.length >= 2 ? `
+                            <canvas id="cockpitGenelExamChart" aria-label="Genel deneme net gelişim grafiği"></canvas>
+                        ` : `
+                            <div class="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 dark:border-gray-700 p-6">
+                                <div>
+                                    <i class="fas fa-chart-line text-2xl text-gray-300 dark:text-gray-600 mb-2"></i>
+                                    <p>Net gelişimini göstermek için en az 2 deneme gerekli.</p>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                </div>
             </div>
 
             <!-- Fen Branş Denemeleri Özeti (Section 12) -->
@@ -606,6 +817,40 @@ export function renderCockpitPerformanceTab(student, homeworks, perfSubTab, sort
                         <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">En Yüksek Branş Neti</p>
                         <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${examPerf.bransSummary.maxNet !== null ? `${formatCockpitNet(examPerf.bransSummary.maxNet)} net` : '—'}</p>
                         <p class="text-xs text-gray-500 mt-0.5">En iyi branş denemesi</p>
+                    </div>
+                </div>
+
+                <!-- Fen Branş Net Gelişimi Grafiği -->
+                <div class="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                        <div>
+                            <h4 class="font-black text-base text-gray-900 dark:text-white">Fen Branş Net Gelişimi</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">20 soru üzerinden branş deneme netlerinin zaman içindeki değişimi</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            ${examPerf.bransChronological.length >= 2 ? `
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                    examPerf.bransSummary.trend === 'improving' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' :
+                                    (examPerf.bransSummary.trend === 'declining' ? 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800' :
+                                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700')
+                                }">
+                                    <i class="fas ${examPerf.bransSummary.trend === 'improving' ? 'fa-arrow-trend-up text-emerald-600' : (examPerf.bransSummary.trend === 'declining' ? 'fa-arrow-trend-down text-red-600' : 'fa-minus text-gray-500')} mr-1"></i>
+                                    ${examPerf.bransSummary.trendLabel}
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="h-64 mt-2">
+                        ${examPerf.bransChronological.length >= 2 ? `
+                            <canvas id="cockpitBransExamChart" aria-label="Fen branş deneme net gelişim grafiği"></canvas>
+                        ` : `
+                            <div class="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 dark:border-gray-700 p-6">
+                                <div>
+                                    <i class="fas fa-chart-line text-2xl text-gray-300 dark:text-gray-600 mb-2"></i>
+                                    <p>Fen branş gelişimini göstermek için en az 2 branş denemesi gerekli.</p>
+                                </div>
+                            </div>
+                        `}
                     </div>
                 </div>
             </div>
@@ -812,11 +1057,155 @@ export async function renderStudentCockpit(id, origin = store.studentPanelOrigin
             ${mainContentHtml}
         </div>`;
 
+    // Destroy all previous cockpit chart instances
+    window.cockpitTrendChartInstance?.destroy();
+    window.cockpitTrendChartInstance = null;
+    window.cockpitHomeworkPerfChartInstance?.destroy();
+    window.cockpitHomeworkPerfChartInstance = null;
+    window.cockpitGenelExamChartInstance?.destroy();
+    window.cockpitGenelExamChartInstance = null;
+    window.cockpitBransExamChartInstance?.destroy();
+    window.cockpitBransExamChartInstance = null;
+
     if (activeTab === 'overview' && cockpit.recentExams.length >= 2 && window.Chart) {
         const canvas = document.getElementById('cockpitTrendChart');
         if (canvas) {
-            window.cockpitTrendChartInstance?.destroy();
             window.cockpitTrendChartInstance = new window.Chart(canvas, { type: 'line', data: { labels: cockpit.recentExams.map(exam => exam.denemeAdi || formatDate(exam.tarih)), datasets: [{ data: cockpit.recentExams.map(exam => Number(exam.toplamNet)), borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, .08)', borderWidth: 2, pointRadius: 3, pointHoverRadius: 4, tension: .32, fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { displayColors: false } }, scales: { x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 0 } }, y: { beginAtZero: false, grid: { color: 'rgba(148,163,184,.16)' }, ticks: { color: '#94a3b8' } } } } });
+        }
+    } else if (activeTab === 'performance' && window.Chart) {
+        if (perfSubTab === 'homework') {
+            const hwPerf = calculateStudentHomeworkPerformance(student, homeworks);
+            if (hwPerf.chronological && hwPerf.chronological.length >= 2) {
+                const canvas = document.getElementById('cockpitHomeworkPerfChart');
+                if (canvas) {
+                    window.cockpitHomeworkPerfChartInstance = new window.Chart(canvas, {
+                        type: 'line',
+                        data: {
+                            labels: hwPerf.chronological.map(h => h.title || h.formattedDate || 'Ödev'),
+                            datasets: [{
+                                label: 'Başarı %',
+                                data: hwPerf.chronological.map(h => h.successPercent),
+                                borderColor: '#4f46e5',
+                                backgroundColor: 'rgba(79, 70, 229, 0.08)',
+                                borderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => {
+                                            const item = hwPerf.chronological[context.dataIndex];
+                                            const lines = [`Başarı: %${context.parsed.y}`];
+                                            if (item && item.totalQuestions) {
+                                                lines.push(`Ham Net: ${formatCockpitNet(item.net)} net (${item.correct}D / ${item.wrong}Y / ${item.totalQuestions} soru)`);
+                                            }
+                                            return lines;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 20 } },
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    grid: { color: 'rgba(148,163,184,0.16)' },
+                                    ticks: {
+                                        color: '#94a3b8',
+                                        callback: (val) => `%${val}`
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        } else if (perfSubTab === 'exams') {
+            const examPerf = calculateStudentSchoolExamPerformance(student);
+            if (examPerf.genelChronological && examPerf.genelChronological.length >= 2) {
+                const canvas = document.getElementById('cockpitGenelExamChart');
+                if (canvas) {
+                    window.cockpitGenelExamChartInstance = new window.Chart(canvas, {
+                        type: 'line',
+                        data: {
+                            labels: examPerf.genelChronological.map(e => e.denemeAdi || formatDate(e.tarih)),
+                            datasets: [{
+                                label: 'Genel Net',
+                                data: examPerf.genelChronological.map(e => Number(e.toplamNet) || 0),
+                                borderColor: '#2563eb',
+                                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                                borderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => `Genel Net: ${formatCockpitNet(context.parsed.y)}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 20 } },
+                                y: { beginAtZero: false, grid: { color: 'rgba(148,163,184,0.16)' }, ticks: { color: '#94a3b8' } }
+                            }
+                        }
+                    });
+                }
+            }
+            if (examPerf.bransChronological && examPerf.bransChronological.length >= 2) {
+                const canvas = document.getElementById('cockpitBransExamChart');
+                if (canvas) {
+                    window.cockpitBransExamChartInstance = new window.Chart(canvas, {
+                        type: 'line',
+                        data: {
+                            labels: examPerf.bransChronological.map(e => e.denemeAdi || formatDate(e.tarih)),
+                            datasets: [{
+                                label: 'Fen Net',
+                                data: examPerf.bransChronological.map(e => Number(e.toplamNet) || 0),
+                                borderColor: '#059669',
+                                backgroundColor: 'rgba(5, 150, 105, 0.08)',
+                                borderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => `Fen Net: ${formatCockpitNet(context.parsed.y)}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 20 } },
+                                y: { beginAtZero: false, grid: { color: 'rgba(148,163,184,0.16)' }, ticks: { color: '#94a3b8' } }
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 }
@@ -3065,5 +3454,6 @@ window.filterSettingsResourceBooks = filterSettingsResourceBooks;
 window.switchCockpitTab = switchCockpitTab;
 window.switchCockpitPerfSubTab = switchCockpitPerfSubTab;
 window.calculateStudentSchoolExamPerformance = calculateStudentSchoolExamPerformance;
+window.calculateStudentHomeworkPerformance = calculateStudentHomeworkPerformance;
 window.renderCockpitPerformanceTab = renderCockpitPerformanceTab;
 window.renderCockpitExamsSection = renderCockpitExamsSection;

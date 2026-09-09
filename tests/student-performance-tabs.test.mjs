@@ -102,7 +102,8 @@ const {
     renderStudentCockpit,
     switchCockpitTab,
     switchCockpitPerfSubTab,
-    calculateStudentSchoolExamPerformance
+    calculateStudentSchoolExamPerformance,
+    calculateStudentHomeworkPerformance
 } = await import('../students.js');
 
 // ============================================================================
@@ -487,4 +488,453 @@ test('Scenario O: Sonuç Gir, Sonucu Gör, and Düzenle CTAs remain functional w
     assert.ok(html.includes('Sonucu Gör'), 'Completed exam button text must be Sonucu Gör');
     assert.ok(html.includes("editExam('std_cta_check', 'ex_d')"), 'Completed exam must have editExam (Düzenle) CTA');
     assert.ok(html.includes('Düzenle'), 'Completed exam button text must be Düzenle');
+});
+
+// ============================================================================
+// PART 3: PERFORMANCE CHARTS & INSIGHTS (UX-COCKPIT-02)
+// ============================================================================
+
+test('Scenario Q: Ödevler - 0 completed homeworks shows empty state without chart canvas', () => {
+    const student = {
+        id: 'std_hw_0',
+        adSoyad: 'Sıfır Ödevli',
+        sinif: '8',
+        denemeler: [],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_hw_0', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('Ödev gelişimini göstermek için en az 2 tamamlanmış ödev gerekli.'));
+    assert.ok(!html.includes('id="cockpitHomeworkPerfChart"'), 'Should not render canvas when < 2 homeworks');
+});
+
+test('Scenario R: Ödevler - 1 completed homework shows empty state without false trend', () => {
+    const student = {
+        id: 'std_hw_1',
+        adSoyad: 'Tek Ödevli',
+        sinif: '8',
+        denemeler: [],
+        odevler: [
+            { id: 'hw_1', konu: 'Hücre Bölünmesi', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 18, yanlis: 2, net: 16 }
+        ]
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_hw_1', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('Ödev gelişimini göstermek için en az 2 tamamlanmış ödev gerekli.'));
+    assert.ok(!html.includes('id="cockpitHomeworkPerfChart"'), 'Should not render canvas when 1 homework');
+});
+
+test('Scenario S: Ödevler - 3+ completed homeworks renders trend series, badges, and canvas', () => {
+    const student = {
+        id: 'std_hw_multi',
+        adSoyad: 'Çok Ödevli',
+        sinif: '8',
+        denemeler: [],
+        odevler: [
+            { id: 'hw_1', konu: 'Mevsimler', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 10, yanlis: 5, net: 8.33 },
+            { id: 'hw_2', konu: 'DNA ve Genetik Kod', durum: 'tamamlandi', bitisTarihi: '2026-09-03', dogru: 15, yanlis: 3, net: 14.0 },
+            { id: 'hw_3', konu: 'Basınç', durum: 'tamamlandi', bitisTarihi: '2026-09-05', dogru: 18, yanlis: 2, net: 17.33 }
+        ]
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_hw_multi', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('id="cockpitHomeworkPerfChart"'), 'Should render canvas when >= 2 homeworks');
+    assert.ok(html.includes('Ödev Performansı'), 'Should have Ödev Performansı card title');
+    assert.ok(html.includes('Yükseliş'), 'Should show Yükseliş trend badge for improving success percent');
+    assert.ok(html.includes('Son Başarı: %'), 'Should show latest success percent badge');
+    assert.ok(html.includes('Ortalama Başarı: %'), 'Should show average success percent badge');
+    assert.ok(html.includes('En Yüksek Başarı: %'), 'Should show max success percent badge');
+    assert.ok(!html.includes('undefined'), 'Must never render undefined in HTML');
+    assert.ok(!html.includes('NaN'), 'Must never render NaN in HTML');
+    assert.ok(!html.includes('— net'), 'Must not render — net placeholder');
+});
+
+test('Scenario T: Ödevler - Hata Nedenleri distribution renders bars with counts and percentages', () => {
+    const student = {
+        id: 'std_hw_errs',
+        adSoyad: 'Hatalı Ödevli',
+        sinif: '8',
+        denemeler: [],
+        odevler: [
+            {
+                id: 'hw_err_1',
+                konu: 'Mevsimler',
+                durum: 'tamamlandi',
+                dogru: 16,
+                yanlis: 4,
+                net: 14.67,
+                yanlisAnalizi: [
+                    { unite: 'Mevsimler', konu: 'Mevsimler', adet: 2, hataNedeni: 'Dikkatsizlik' },
+                    { unite: 'Mevsimler', konu: 'Mevsimler', adet: 1, hataNedeni: 'Bilgi Eksikliği' },
+                    { unite: 'Mevsimler', konu: 'Mevsimler', adet: 1, hataNedeni: 'Yanlış Okuma' }
+                ]
+            }
+        ]
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_hw_errs', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('Hata Nedenleri Dağılımı'));
+    assert.ok(html.includes('Dikkatsizlik'));
+    assert.ok(html.includes('2 soru (%50)'));
+    assert.ok(html.includes('Bilgi Eksikliği'));
+    assert.ok(html.includes('1 soru (%25)'));
+    assert.ok(html.includes('Yanlış Okuma'));
+    assert.ok(html.includes('1 soru (%25)'));
+});
+
+test('Scenario U: Ödevler - Hata Nedenleri empty state renders exact required message', () => {
+    const student = {
+        id: 'std_hw_no_errs',
+        adSoyad: 'Kusursuz Öğrenci',
+        sinif: '8',
+        denemeler: [],
+        odevler: [
+            { id: 'hw_clean', konu: 'Basınç', durum: 'tamamlandi', dogru: 20, yanlis: 0, net: 20 }
+        ]
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_hw_no_errs', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('Hata analizi yapılmış kayıt bulunmuyor.'));
+});
+
+test('Scenario V: Okul Denemeleri - 0 exams shows empty state without chart canvas', () => {
+    const student = {
+        id: 'std_exam_0',
+        adSoyad: 'Denemesiz Öğrenci',
+        sinif: '8',
+        denemeler: [],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_exam_0', 'home', 'performance', 'exams');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('Net gelişimini göstermek için en az 2 deneme gerekli.'));
+    assert.ok(!html.includes('id="cockpitGenelExamChart"'), 'Should not render canvas when < 2 exams');
+});
+
+test('Scenario W: Okul Denemeleri - 1 completed general exam shows empty state without false trend', () => {
+    const student = {
+        id: 'std_exam_1',
+        adSoyad: 'Tek Denemeli',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_1', tip: 'genel', denemeAdi: 'Deneme 1', tarih: '2026-09-01', toplamNet: 70.0 }
+        ],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_exam_1', 'home', 'performance', 'exams');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('Net gelişimini göstermek için en az 2 deneme gerekli.'));
+    assert.ok(!html.includes('id="cockpitGenelExamChart"'), 'Should not render canvas when 1 exam');
+
+    const perf = calculateStudentSchoolExamPerformance(student);
+    assert.equal(perf.genelSummary.trend, null, 'Trend should be null for 1 exam');
+});
+
+test('Scenario X: Okul Denemeleri - 3+ completed general exams renders chronological chart canvas and trend', () => {
+    const student = {
+        id: 'std_exam_multi',
+        adSoyad: 'Çok Denemeli',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_1', tip: 'genel', denemeAdi: 'Deneme 1', tarih: '2026-09-01', toplamNet: 60.0 },
+            { id: 'ex_2', tip: 'genel', denemeAdi: 'Deneme 2', tarih: '2026-09-03', toplamNet: 68.0 },
+            { id: 'ex_3', tip: 'genel', denemeAdi: 'Deneme 3', tarih: '2026-09-05', toplamNet: 75.0 }
+        ],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_exam_multi', 'home', 'performance', 'exams');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('id="cockpitGenelExamChart"'), 'Should render canvas when >= 2 general exams');
+    assert.ok(html.includes('Net Gelişimi'), 'Should have Net Gelişimi section');
+    assert.ok(html.includes('Yükseliş'), 'Should display Yükseliş trend badge (60.0 -> 75.0)');
+
+    const perf = calculateStudentSchoolExamPerformance(student);
+    assert.equal(perf.genelChronological.length, 3);
+    assert.equal(perf.genelChronological[0].toplamNet, 60.0);
+    assert.equal(perf.genelChronological[2].toplamNet, 75.0);
+    assert.equal(perf.genelSummary.trend, 'improving');
+    assert.equal(perf.genelSummary.trendLabel, 'Yükseliş');
+    assert.equal(perf.genelSummary.chronologicalDelta, 15.0);
+});
+
+test('Scenario Y: Okul Denemeleri - Branch exams render in separate block without bleeding into general nets', () => {
+    const student = {
+        id: 'std_exam_brans_sep',
+        adSoyad: 'Ayrık Denemeli',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_g1', tip: 'genel', denemeAdi: 'Genel 1', tarih: '2026-09-01', toplamNet: 80.0 },
+            { id: 'ex_g2', tip: 'genel', denemeAdi: 'Genel 2', tarih: '2026-09-04', toplamNet: 82.0 },
+            { id: 'ex_b1', tip: 'branş', ders: 'Fen Bilimleri', denemeAdi: 'Fen Branş 1', tarih: '2026-09-02', toplamNet: 18.0 },
+            { id: 'ex_b2', tip: 'branş', ders: 'Fen Bilimleri', denemeAdi: 'Fen Branş 2', tarih: '2026-09-05', toplamNet: 19.0 }
+        ],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_exam_brans_sep', 'home', 'performance', 'exams');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    // Both canvases must exist separately
+    assert.ok(html.includes('id="cockpitGenelExamChart"'), 'Should render general exam canvas');
+    assert.ok(html.includes('id="cockpitBransExamChart"'), 'Should render branch exam canvas');
+    assert.ok(html.includes('Fen Bilimleri Branş Denemeleri'), 'Should render branch exam panel');
+    assert.ok(html.includes('Fen Branş Net Gelişimi'), 'Should render branch exam chart section');
+
+    // Summaries strictly separated
+    const perf = calculateStudentSchoolExamPerformance(student);
+    assert.equal(perf.genelSummary.completedCount, 2);
+    assert.equal(perf.genelSummary.latestNet, 82.0);
+    assert.equal(perf.genelSummary.averageNet, 81.0);
+    assert.equal(perf.bransSummary.completedCount, 2);
+    assert.equal(perf.bransSummary.latestNet, 19.0);
+    assert.equal(perf.bransSummary.averageNet, 18.5);
+});
+
+test('Scenario Z: Okul Denemeleri - When 0 branch exams exist, branch section is omitted', () => {
+    const student = {
+        id: 'std_exam_no_brans',
+        adSoyad: 'Yalnız Genel',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_g1', tip: 'genel', denemeAdi: 'Genel 1', tarih: '2026-09-01', toplamNet: 75.0 },
+            { id: 'ex_g2', tip: 'genel', denemeAdi: 'Genel 2', tarih: '2026-09-03', toplamNet: 78.0 }
+        ],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_exam_no_brans', 'home', 'performance', 'exams');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(!html.includes('Fen Bilimleri Branş Denemeleri'), 'Branch panel must NOT render when 0 branch exams');
+    assert.ok(!html.includes('cockpitBransExamChart'), 'Branch chart canvas must NOT render when 0 branch exams');
+});
+
+test('Scenario AA: Okul Denemeleri - Branch exam trend calculation and 1-exam empty state', () => {
+    const studentSingle = {
+        id: 'std_brans_single',
+        adSoyad: 'Tek Branş',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_b1', tip: 'branş', ders: 'Fen Bilimleri', denemeAdi: 'Fen 1', tarih: '2026-09-01', toplamNet: 17.0 }
+        ],
+        odevler: []
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([studentSingle]));
+    store.globalStudents = [studentSingle];
+
+    renderStudentCockpit('std_brans_single', 'home', 'performance', 'exams');
+    const htmlSingle = document.getElementById('dynamic-content').innerHTML;
+    assert.ok(htmlSingle.includes('Fen branş gelişimini göstermek için en az 2 branş denemesi gerekli.'));
+    assert.ok(!htmlSingle.includes('id="cockpitBransExamChart"'));
+
+    const perfSingle = calculateStudentSchoolExamPerformance(studentSingle);
+    assert.equal(perfSingle.bransSummary.trend, null);
+
+    // Multi branch exam
+    const studentMulti = {
+        id: 'std_brans_multi',
+        adSoyad: 'Çok Branş',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_b1', tip: 'branş', ders: 'Fen Bilimleri', denemeAdi: 'Fen 1', tarih: '2026-09-01', toplamNet: 14.0 },
+            { id: 'ex_b2', tip: 'branş', ders: 'Fen Bilimleri', denemeAdi: 'Fen 2', tarih: '2026-09-05', toplamNet: 18.0 }
+        ],
+        odevler: []
+    };
+    const perfMulti = calculateStudentSchoolExamPerformance(studentMulti);
+    assert.equal(perfMulti.bransSummary.trend, 'improving');
+    assert.equal(perfMulti.bransSummary.trendLabel, 'Yükseliş');
+    assert.equal(perfMulti.bransSummary.chronologicalDelta, 4.0);
+});
+
+test('Scenario AB: Headless safety - renderStudentCockpit never crashes when window.Chart is undefined', () => {
+    const student = {
+        id: 'std_headless_safe',
+        adSoyad: 'Headless Güvenli',
+        sinif: '8',
+        denemeler: [
+            { id: 'ex_g1', tip: 'genel', denemeAdi: 'Genel 1', tarih: '2026-09-01', toplamNet: 70.0 },
+            { id: 'ex_g2', tip: 'genel', denemeAdi: 'Genel 2', tarih: '2026-09-03', toplamNet: 75.0 }
+        ],
+        odevler: [
+            { id: 'hw_1', konu: 'Mevsimler', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 15, yanlis: 5, net: 13.33 },
+            { id: 'hw_2', konu: 'Basınç', durum: 'tamamlandi', bitisTarihi: '2026-09-03', dogru: 18, yanlis: 2, net: 17.33 }
+        ]
+    };
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    // Ensure window.Chart is undefined
+    const origChart = globalThis.window.Chart;
+    delete globalThis.window.Chart;
+
+    assert.doesNotThrow(() => {
+        renderStudentCockpit('std_headless_safe', 'home', 'overview');
+        renderStudentCockpit('std_headless_safe', 'home', 'performance', 'homework');
+        renderStudentCockpit('std_headless_safe', 'home', 'performance', 'exams');
+    }, 'renderStudentCockpit must safely execute without window.Chart');
+
+    if (origChart) globalThis.window.Chart = origChart;
+});
+
+// ============================================================================
+// PART 4: HOMEWORK SUCCESS PERCENTAGE & MAX VALUE FIXES (UX-COCKPIT-02.1)
+// ============================================================================
+
+test('Scenario AC: Homework metric calculation - net = dogru - yanlis/3, successPercent = (net/toplamSoru)*100', () => {
+    const student = {
+        id: 'std_metric_calc',
+        odevler: [
+            { id: 'hw_10q', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 9, yanlis: 0, toplamSoru: 10 },
+            { id: 'hw_30q', durum: 'tamamlandi', bitisTarihi: '2026-09-02', dogru: 21, yanlis: 3, toplamSoru: 30 }
+        ]
+    };
+
+    const perf = calculateStudentHomeworkPerformance(student);
+    assert.equal(perf.completedCount, 2);
+
+    // HW1: 9D 0Y / 10q -> net = 9.0, success = 90.0%
+    const item1 = perf.chronological[0];
+    assert.equal(item1.net, 9.0);
+    assert.equal(item1.totalQuestions, 10);
+    assert.equal(item1.successPercent, 90.0);
+
+    // HW2: 21D 3Y / 30q -> net = 21 - 1 = 20.0, success = (20/30)*100 = 66.7%
+    const item2 = perf.chronological[1];
+    assert.equal(item2.net, 20.0);
+    assert.equal(item2.totalQuestions, 30);
+    assert.equal(item2.successPercent, 66.7);
+});
+
+test('Scenario AD: Variable question count trend normalization - raw net increase with percent drop evaluates to declining', () => {
+    const student = {
+        id: 'std_trend_norm',
+        odevler: [
+            { id: 'hw_1', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 9, yanlis: 0, toplamSoru: 10 }, // 90.0%
+            { id: 'hw_2', durum: 'tamamlandi', bitisTarihi: '2026-09-05', dogru: 21, yanlis: 3, toplamSoru: 30 } // 66.7%
+        ]
+    };
+
+    const perf = calculateStudentHomeworkPerformance(student);
+    // Raw net: 9.0 -> 20.0 (an increase of +11.0 net)
+    assert.ok(perf.chronological[1].net > perf.chronological[0].net, 'Raw net actually increased');
+
+    // Success %: 90.0% -> 66.7% (a drop of -23.3%)
+    assert.equal(perf.deltaPercent, -23.3);
+    assert.equal(perf.trend, 'declining', 'Trend MUST evaluate to declining based on normalized %');
+    assert.equal(perf.trendLabel, 'Düşüş', 'Trend label must be Düşüş');
+});
+
+test('Scenario AE: Max value calculation - maxSuccessPercent is exact without undefined/NaN', () => {
+    const student = {
+        id: 'std_max_val',
+        odevler: [
+            { id: 'hw_1', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 5, yanlis: 0, toplamSoru: 10 },   // 50.0%
+            { id: 'hw_2', durum: 'tamamlandi', bitisTarihi: '2026-09-03', dogru: 19, yanlis: 0, toplamSoru: 20 },  // 95.0%
+            { id: 'hw_3', durum: 'tamamlandi', bitisTarihi: '2026-09-05', dogru: 16, yanlis: 0, toplamSoru: 20 }   // 80.0%
+        ]
+    };
+
+    const perf = calculateStudentHomeworkPerformance(student);
+    assert.equal(perf.maxSuccessPercent, 95.0, 'Max success percentage must be 95.0');
+    assert.notEqual(perf.maxSuccessPercent, undefined);
+    assert.notEqual(perf.maxSuccessPercent, null);
+    assert.ok(!Number.isNaN(perf.maxSuccessPercent));
+
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([student]));
+    store.globalStudents = [student];
+
+    renderStudentCockpit('std_max_val', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+
+    assert.ok(html.includes('En Yüksek Başarı: %95'), 'Must render En Yüksek Başarı: %95');
+    assert.ok(!html.includes('— net'), 'Must not render — net placeholder');
+    assert.ok(!html.includes('undefined'), 'Must not render undefined');
+    assert.ok(!html.includes('NaN'), 'Must not render NaN');
+});
+
+test('Scenario AF: Safe empty states - 0 records and 1 record trend safety', () => {
+    const studentZero = { id: 'std_zero', odevler: [] };
+    const perfZero = calculateStudentHomeworkPerformance(studentZero);
+    assert.equal(perfZero.completedCount, 0);
+    assert.equal(perfZero.trend, null);
+    assert.equal(perfZero.maxSuccessPercent, null);
+    assert.equal(perfZero.averageSuccessPercent, null);
+    assert.equal(perfZero.latestSuccessPercent, null);
+
+    const studentSingle = {
+        id: 'std_single',
+        odevler: [
+            { id: 'hw_1', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 17, yanlis: 3, toplamSoru: 20 }
+        ]
+    };
+    const perfSingle = calculateStudentHomeworkPerformance(studentSingle);
+    assert.equal(perfSingle.completedCount, 1);
+    assert.equal(perfSingle.latestSuccessPercent, 80.0);
+    assert.equal(perfSingle.maxSuccessPercent, 80.0);
+    assert.equal(perfSingle.trend, null, 'Trend must be null when only 1 homework');
+    assert.equal(perfSingle.trendLabel, 'Trend için yeterli ödev yok');
+
+    storageMap.set(localDataKey(STORAGE_KEY), JSON.stringify([studentSingle]));
+    store.globalStudents = [studentSingle];
+
+    renderStudentCockpit('std_single', 'home', 'performance', 'homework');
+    const html = document.getElementById('dynamic-content').innerHTML;
+    assert.ok(html.includes('Ödev gelişimini göstermek için en az 2 tamamlanmış ödev gerekli.'));
+    assert.ok(!html.includes('Yükseliş'), 'Must not claim Yükseliş with 1 record');
+    assert.ok(!html.includes('Düşüş'), 'Must not claim Düşüş with 1 record');
+});
+
+test('Scenario AG: Preservation of raw net in data structure and secondary display', () => {
+    const student = {
+        id: 'std_raw_net',
+        odevler: [
+            { id: 'hw_1', durum: 'tamamlandi', bitisTarihi: '2026-09-01', dogru: 15, yanlis: 3, toplamSoru: 20 }
+        ]
+    };
+
+    const perf = calculateStudentHomeworkPerformance(student);
+    const item = perf.chronological[0];
+    assert.equal(item.net, 14.0, 'Raw net must be 14.0');
+    assert.equal(item.correct, 15);
+    assert.equal(item.wrong, 3);
+    assert.equal(item.totalQuestions, 20);
+    assert.equal(perf.latestNet, 14.0);
+    assert.equal(perf.averageNet, 14.0);
 });
