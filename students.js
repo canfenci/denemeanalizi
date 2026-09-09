@@ -4,7 +4,7 @@ import { db, auth, isFirebaseActive } from './firebase-config.js';
 import { store, loadStudentsData, saveStudentsData, createStudentDocument, updateStudentProfile, loadSchedule, loadDersKayitlari, getStudentOdevler, getKonuListesiBySinif, escapeHtml, POPULER_LISELER, HATA_KODLARI, getErrorColor, GENEL_DERSLER_KEY, GENEL_DERSLER_GORUNUM, localDataKey } from './store.js';
 import { showSyncStatus } from './ui-helpers.js';
 import { updateMobileNavActive } from './auth.js';
-import { getBransOrtalamaNet, getGenelOrtalamaNet, getOrtalamaNet, getKonuBazliBasarilar, getBestWorstTopics, getMotivationMessage, getHataIstatistikleri, lgsPuanHesapla, isExamResultPending } from './exams.js';
+import { getBransOrtalamaNet, getGenelOrtalamaNet, getOrtalamaNet, getKonuBazliBasarilar, getBestWorstTopics, getMotivationMessage, getHataIstatistikleri, lgsPuanHesapla, isExamResultPending, isFenBranchExam, getGeneralExamFenQuestions, getGeneralExamFenQuestionIndexes } from './exams.js';
 import { buildStudentTimeline, calculateSmartExamAnalysis, calculateStudentSummary, formatTimelineDate } from './student-insights.js';
 import { validateStudentInput } from './data-validation.js';
 import { renderLessonReminderCenter } from './lesson-reminders.js';
@@ -12,6 +12,7 @@ import { calculateTopicExamProgress } from './topic-exam-insights.js';
 import { addResourceBook, deleteResourceBook, loadResourceBooks } from './resource-books.js';
 import { backupFileName, buildFullBackup, summarizeBackupData, validateFullBackup } from './backup.js';
 import { buildCockpitStatusItems, cockpitTimelineIcons, formatCockpitNet, getCockpitData, getStudentInitials } from './student-cockpit-insights.js';
+import { buildHomeworkPerformanceInsights } from './guidance-performance-insights.js';
 
 let selectedSettingsResourceGrade = '';
 
@@ -133,62 +134,9 @@ export function renderStudentSummaryPanel(id) {
     return renderStudentCockpit(id, 'home');
 }
 
-export async function renderStudentCockpit(id, origin = store.studentPanelOrigin || 'home') {
-    store.currentPage = 'student';
-    if (window.currentPage) window.currentPage = 'student';
-    store.currentStudentId = id;
-    store.studentPanelOrigin = origin;
-    updateMobileNavActive(origin === 'guidance' ? 'mobile-nav-guidance' : 'mobile-nav-home');
-    const student = loadStudentsData().find(item => item.id === id);
-    if (!student) return renderHomeScreen();
-
-    const homeworks = getStudentOdevler(student);
-    const lessons = loadDersKayitlari(id);
-    const schedule = loadSchedule(id);
-    const summary = calculateStudentSummary(student, homeworks, lessons, schedule);
-    const analysis = calculateSmartExamAnalysis(student, homeworks);
-    const cockpit = getCockpitData({ student, homeworks, summary, analysis, timeline: buildStudentTimeline(student, homeworks, lessons) });
-    const statusItems = buildCockpitStatusItems(cockpit);
-    const currentOrigin = origin === 'guidance' ? 'renderGuidancePage()' : 'renderHomeScreen()';
-    const currentOriginLabel = origin === 'guidance' ? 'Rehberlik' : 'Öğrenci Listesi';
-    const subjectNames = Object.fromEntries(GENEL_DERSLER_KEY.map((key, index) => [key, GENEL_DERSLER_GORUNUM[index] || key]));
+export function renderCockpitExamsSection(student, sortedExams) {
+    const id = student.id;
     const formatDate = date => formatTimelineDate(date);
-    const upcomingLesson = cockpit.upcomingLesson
-        ? `${new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'short' }).format(cockpit.upcomingLesson.date)} · ${String(cockpit.upcomingLesson.saat || '').padStart(5, '0')}`
-        : 'Planlanmadı';
-    const insights = [
-        ['fa-arrow-trend-up', 'En güçlü ders', cockpit.strongest ? `${subjectNames[cockpit.strongest.subject] || cockpit.strongest.subject} · %${cockpit.strongest.successRate}` : 'Yeterli veri yok'],
-        ['fa-triangle-exclamation', 'Kritik eksik', cockpit.criticalTopic ? `${cockpit.criticalTopic.topic} · ${cockpit.criticalTopic.errors} hata` : 'Yeterli veri yok'],
-        ['fa-magnifying-glass', 'En sık hata', cockpit.mostFrequentError ? cockpit.mostFrequentError.label : 'Yeterli veri yok'],
-        ['fa-bullseye', 'Bu haftaki öncelik', cockpit.priority || 'Henüz öncelik belirlenmedi']
-    ];
-    const timelineHtml = cockpit.timeline.length ? cockpit.timeline.slice(0, 6).map((event, index) => `
-        <div class="relative flex gap-3 ${index < cockpit.timeline.length - 1 ? 'pb-4' : ''}">
-            ${index < cockpit.timeline.length - 1 ? '<span class="absolute left-4 top-8 bottom-0 w-px bg-gray-200 dark:bg-gray-700"></span>' : ''}
-            <span class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-xs text-slate-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"><i class="fas ${cockpitTimelineIcons[event.category] || 'fa-circle-info'}"></i></span>
-            <div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-3"><p class="font-bold text-sm text-gray-800 dark:text-gray-100">${escapeHtml(event.title)}</p><time class="shrink-0 text-xs text-gray-400">${escapeHtml(formatDate(event.date))}</time></div><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(event.detail)}</p></div>
-        </div>`).join('') : '<p class="py-6 text-sm text-gray-500">Henüz etkinlik kaydı yok. Deneme, ödev veya ders kaydı eklendiğinde burada görünür.</p>';
-    const statusHtml = statusItems.length ? statusItems.map(item => `<li class="flex gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0"><i class="fas ${item.icon} mt-0.5 ${item.tone === 'positive' ? 'text-emerald-600' : item.tone === 'critical' ? 'text-red-500' : item.tone === 'warning' ? 'text-amber-600' : 'text-slate-500'}"></i><span class="text-sm text-gray-700 dark:text-gray-300">${escapeHtml(item.text)}</span></li>`).join('') : '<li class="py-5 text-sm text-gray-500">Durum özeti için yeterli veri yok.</li>';
-    const metrics = [
-        ['fa-file-lines', 'Son deneme', summary.latestNet === null ? '—' : `${formatCockpitNet(summary.latestNet)} net`, summary.latestExam ? escapeHtml(summary.latestExam.denemeAdi || formatDate(summary.latestExam.tarih)) : 'Genel deneme kaydı yok'],
-        ['fa-chart-line', `${cockpit.averageCount || 5} deneme ort.`, cockpit.averageNet === null ? '—' : `${formatCockpitNet(cockpit.averageNet)} net`, cockpit.averageCount ? `${cockpit.averageCount} karşılaştırılabilir genel deneme` : 'Yeterli veri yok'],
-        ['fa-list-check', 'Ödev disiplini', cockpit.homeworkCompletionRate === null ? '—' : `%${cockpit.homeworkCompletionRate}`, cockpit.homeworkCompletionRate === null ? 'Ödev kaydı yok' : `${cockpit.completedHomeworkCount} / ${cockpit.homeworkCount} tamamlandı`],
-        ['fa-bullseye', 'Hedef durumu', cockpit.targetGap === null ? '—' : cockpit.targetGap <= 0 ? 'Hedefte' : `${formatCockpitNet(cockpit.targetGap)} net`, cockpit.targetGap === null ? 'Hedef veya son deneme yok' : cockpit.targetGap <= 0 ? 'Son deneme hedefe ulaştı' : 'Hedefe kalan net']
-    ];
-
-    const rawExams = Array.isArray(student.denemeler) ? student.denemeler : [];
-    const sortedExams = rawExams
-        .map((exam, origIdx) => ({ exam, origIdx }))
-        .sort((a, b) => {
-            const dateA = a.exam.tarih || '';
-            const dateB = b.exam.tarih || '';
-            if (dateA !== dateB) {
-                return dateB.localeCompare(dateA);
-            }
-            return b.origIdx - a.origIdx;
-        })
-        .map(item => item.exam);
-
     const pendingCount = sortedExams.filter(ex => isExamResultPending(ex)).length;
 
     let examsListHtml = '';
@@ -270,7 +218,7 @@ export async function renderStudentCockpit(id, origin = store.studentPanelOrigin
         examsListHtml = `<div class="mt-4 space-y-3 max-h-[580px] overflow-y-auto pr-1">${cards}</div>`;
     }
 
-    const examsSectionHtml = `
+    return `
         <section class="app-panel p-5" id="cockpit-exams-section">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-4">
                 <div class="flex items-center gap-3">
@@ -290,19 +238,579 @@ export async function renderStudentCockpit(id, origin = store.studentPanelOrigin
             ${examsListHtml}
         </section>
     `;
+}
 
-    document.getElementById('dynamic-content').innerHTML = `
-        <div class="app-page cf-cockpit pb-28 sm:pb-8">
-            <header class="app-page-header cf-cockpit-header"><div class="flex items-start gap-4"><button onclick="${currentOrigin}" class="btn-secondary min-h-[44px] px-3" aria-label="${currentOriginLabel} sayfasına dön"><i class="fas fa-arrow-left"></i></button><div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-lg font-black tracking-wide text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">${escapeHtml(getStudentInitials(student.adSoyad))}</div><div><h2 class="app-page-title">${escapeHtml(student.adSoyad)}</h2><p class="app-page-subtitle">${escapeHtml(student.sinif ? `${student.sinif}. Sınıf` : 'Sınıf belirtilmemiş')} ${student.hedefNet ? `· Hedef: ${escapeHtml(student.hedefNet)} net` : ''}</p><p class="mt-1 text-xs text-gray-500">${[student.okul, student.grup, student.hedefLise].filter(Boolean).map(escapeHtml).join(' · ') || 'Ek okul veya hedef bilgisi yok'}</p></div></div><button onclick="editStudent('${id}')" class="btn-secondary min-h-[44px] px-4"><i class="fas fa-pen mr-1"></i> Düzenle</button></header>
+export function calculateStudentSchoolExamPerformance(student) {
+    const rawExams = Array.isArray(student?.denemeler) ? student.denemeler : [];
+    const sortedExams = rawExams
+        .map((exam, origIdx) => ({ exam, origIdx }))
+        .sort((a, b) => {
+            const dateA = a.exam.tarih || '';
+            const dateB = b.exam.tarih || '';
+            if (dateA !== dateB) return dateB.localeCompare(dateA);
+            return b.origIdx - a.origIdx;
+        })
+        .map(item => item.exam);
+
+    const genelExams = sortedExams.filter(e => e.tip === 'genel');
+    const bransExams = sortedExams.filter(e => e.tip === 'branş' || isFenBranchExam(e, student));
+
+    // Genel Deneme Özeti
+    const genelCompleted = genelExams.filter(e => !isExamResultPending(e));
+    const genelLatest = genelCompleted.length > 0 ? genelCompleted[0] : (genelExams.length > 0 ? genelExams[0] : null);
+    const genelLatestNet = genelLatest && genelLatest.toplamNet !== undefined && genelLatest.toplamNet !== null
+        ? Number(genelLatest.toplamNet)
+        : null;
+    const genelAvgNet = genelCompleted.length > 0
+        ? Number((genelCompleted.reduce((sum, e) => sum + (Number(e.toplamNet) || 0), 0) / genelCompleted.length).toFixed(2))
+        : (genelExams.length > 0 && genelExams[0].toplamNet !== undefined ? Number(genelExams[0].toplamNet) : null);
+    const genelMaxNet = genelCompleted.length > 0
+        ? Math.max(...genelCompleted.map(e => Number(e.toplamNet) || 0))
+        : (genelExams.length > 0 && genelExams[0].toplamNet !== undefined ? Number(genelExams[0].toplamNet) : null);
+
+    let genelTrendDelta = null;
+    if (genelCompleted.length >= 2) {
+        const first = Number(genelCompleted[0].toplamNet) || 0;
+        const second = Number(genelCompleted[1].toplamNet) || 0;
+        genelTrendDelta = Number((first - second).toFixed(2));
+    }
+
+    // Branş Deneme Özeti
+    const bransCompleted = bransExams.filter(e => !isExamResultPending(e));
+    const bransLatest = bransCompleted.length > 0 ? bransCompleted[0] : (bransExams.length > 0 ? bransExams[0] : null);
+    const bransLatestNet = bransLatest && bransLatest.toplamNet !== undefined && bransLatest.toplamNet !== null
+        ? Number(bransLatest.toplamNet)
+        : null;
+    const bransAvgNet = bransCompleted.length > 0
+        ? Number((bransCompleted.reduce((sum, e) => sum + (Number(e.toplamNet) || 0), 0) / bransCompleted.length).toFixed(2))
+        : (bransExams.length > 0 && bransExams[0].toplamNet !== undefined ? Number(bransExams[0].toplamNet) : null);
+    const bransMaxNet = bransCompleted.length > 0
+        ? Math.max(...bransCompleted.map(e => Number(e.toplamNet) || 0))
+        : (bransExams.length > 0 && bransExams[0].toplamNet !== undefined ? Number(bransExams[0].toplamNet) : null);
+
+    // Konu ve Hata Kodu Analizi (Yanlış + Boş)
+    const topicMap = new Map();
+    const CANONICAL_CODES = [
+        { kod: 'BE', aciklama: 'Bilgi Eksikliği' },
+        { kod: 'KY', aciklama: 'Kavram Yanılgısı' },
+        { kod: 'D', aciklama: 'Dikkatsizlik' },
+        { kod: 'YO', aciklama: 'Yanlış Okuma' },
+        { kod: 'İH', aciklama: 'İşlem Hatası' },
+        { kod: 'ZY', aciklama: 'Zaman Yetmedi' }
+    ];
+    const codeCounts = { BE: 0, KY: 0, D: 0, YO: 0, 'İH': 0, ZY: 0 };
+    let analyzedCount = 0;
+    let unassignedCount = 0;
+    let totalErrorQuestions = 0;
+
+    for (const exam of sortedExams) {
+        if (isExamResultPending(exam)) continue;
+
+        let questions = [];
+        if (exam.tip === 'genel') {
+            questions = getGeneralExamFenQuestions(exam);
+        } else if (exam.tip === 'branş' || isFenBranchExam(exam, student)) {
+            questions = Array.isArray(exam.sorular) ? exam.sorular : [];
+        }
+
+        for (const q of questions) {
+            if (!q) continue;
+            const isWrong = q.durum === 'yanlis';
+            const isBlank = q.durum === 'bos';
+            if (!isWrong && !isBlank) continue;
+
+            totalErrorQuestions++;
+
+            // Konu analizi: wrong + blank
+            const topic = String(q.konuAdi || q.konu || exam.konu || 'Fen Bilimleri').trim();
+            if (!topicMap.has(topic)) {
+                topicMap.set(topic, {
+                    topic,
+                    wrong: 0,
+                    blank: 0,
+                    total: 0,
+                    examIds: new Set()
+                });
+            }
+            const tEntry = topicMap.get(topic);
+            if (isWrong) tEntry.wrong++;
+            if (isBlank) tEntry.blank++;
+            tEntry.total = tEntry.wrong + tEntry.blank;
+            tEntry.examIds.add(exam.id || exam.denemeAdi || exam.tarih);
+
+            // Hata kodu analizi: canonical kodlar
+            const rawHata = q.hataKodu;
+            let matchedCode = null;
+            if (rawHata) {
+                const norm = String(rawHata).trim().toLocaleUpperCase('tr-TR');
+                for (const c of CANONICAL_CODES) {
+                    if (norm === c.kod.toLocaleUpperCase('tr-TR') ||
+                        norm === c.aciklama.toLocaleUpperCase('tr-TR') ||
+                        norm.includes(c.aciklama.toLocaleUpperCase('tr-TR'))) {
+                        matchedCode = c.kod;
+                        break;
+                    }
+                }
+            }
+
+            if (matchedCode && codeCounts[matchedCode] !== undefined) {
+                codeCounts[matchedCode]++;
+                analyzedCount++;
+            } else {
+                unassignedCount++;
+            }
+        }
+    }
+
+    const weakTopics = Array.from(topicMap.values())
+        .map(t => ({
+            topic: t.topic,
+            wrong: t.wrong,
+            blank: t.blank,
+            total: t.total,
+            examCount: t.examIds.size
+        }))
+        .sort((a, b) => b.total - a.total || b.wrong - a.wrong);
+
+    const errorReasons = CANONICAL_CODES.map(c => {
+        const count = codeCounts[c.kod] || 0;
+        const percentage = analyzedCount > 0 ? Math.round((count / analyzedCount) * 100) : 0;
+        return {
+            code: c.kod,
+            label: c.aciklama,
+            count,
+            percentage,
+            color: getErrorColor(c.kod)
+        };
+    }).sort((a, b) => b.count - a.count);
+
+    return {
+        sortedExams,
+        genelSummary: {
+            totalCount: genelExams.length,
+            completedCount: genelCompleted.length,
+            latestNet: genelLatestNet,
+            averageNet: genelAvgNet,
+            maxNet: genelMaxNet,
+            trendDelta: genelTrendDelta
+        },
+        bransSummary: {
+            totalCount: bransExams.length,
+            completedCount: bransCompleted.length,
+            latestNet: bransLatestNet,
+            averageNet: bransAvgNet,
+            maxNet: bransMaxNet
+        },
+        weakTopics,
+        errorReasons,
+        analyzedCount,
+        unassignedCount,
+        totalErrorQuestions
+    };
+}
+
+export function renderCockpitPerformanceTab(student, homeworks, perfSubTab, sortedExams, examsSectionHtml) {
+    const id = student.id;
+
+    const subTabsNav = `
+        <div class="flex items-center gap-2 mb-4 overflow-x-auto" role="tablist" aria-label="Performans Alt Sekmeleri">
+            <button type="button" onclick="switchCockpitPerfSubTab('${id}', 'homework')" id="perf-subtab-homework" role="tab" aria-selected="${perfSubTab === 'homework'}" class="min-h-[44px] px-4 py-2 text-sm font-bold rounded-xl transition flex items-center gap-2 whitespace-nowrap ${perfSubTab === 'homework' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}">
+                <i class="fas fa-book-open"></i> Ödevler
+            </button>
+            <button type="button" onclick="switchCockpitPerfSubTab('${id}', 'exams')" id="perf-subtab-exams" role="tab" aria-selected="${perfSubTab === 'exams'}" class="min-h-[44px] px-4 py-2 text-sm font-bold rounded-xl transition flex items-center gap-2 whitespace-nowrap ${perfSubTab === 'exams' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}">
+                <i class="fas fa-file-signature"></i> Okul Denemeleri
+            </button>
+        </div>
+    `;
+
+    if (perfSubTab === 'homework') {
+        const hwInsights = buildHomeworkPerformanceInsights(student, homeworks);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const missingHwCount = homeworks.filter(h => h && (h.durum === 'yapilmadi' || h.durum === 'eksik')).length;
+        const overdueHwCount = homeworks.filter(h => h && h.durum !== 'tamamlandi' && h.bitisTarihi && h.bitisTarihi < todayStr).length;
+
+        return `
+            ${subTabsNav}
+            <div class="space-y-4">
+                <!-- Ödev KPI'ları -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="app-panel p-3">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Verilen Ödev</p>
+                        <p class="text-xl font-black text-gray-900 dark:text-white mt-1">${homeworks.length}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Toplam kayıt</p>
+                    </div>
+                    <div class="app-panel p-3">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Tamamlanan</p>
+                        <p class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${hwInsights.summary.totalCompleted}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">${homeworks.length > 0 ? Math.round((hwInsights.summary.totalCompleted / homeworks.length) * 100) : 0}% tamamlama</p>
+                    </div>
+                    <div class="app-panel p-3">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Eksik / Yapılmayan</p>
+                        <p class="text-xl font-black ${missingHwCount > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'} mt-1">${missingHwCount}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Teslim edilmedi</p>
+                    </div>
+                    <div class="app-panel p-3">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Geciken</p>
+                        <p class="text-xl font-black ${overdueHwCount > 0 ? 'text-amber-500' : 'text-gray-900 dark:text-white'} mt-1">${overdueHwCount}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Süresi geçen</p>
+                    </div>
+                    <div class="app-panel p-3">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Ortalama D / Y</p>
+                        <p class="text-xl font-black text-gray-900 dark:text-white mt-1">${hwInsights.summary.averageCorrect !== null ? `${hwInsights.summary.averageCorrect}D / ${hwInsights.summary.averageWrong}Y` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Soru ortalaması</p>
+                    </div>
+                    <div class="app-panel p-3">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Ortalama Net</p>
+                        <p class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${hwInsights.summary.averageNet !== null ? `${hwInsights.summary.averageNet} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Ödev net ortalaması</p>
+                    </div>
+                </div>
+
+                <!-- 2 Kolon: Ödevlerde Zorlanılan Konular vs Hata Nedenleri -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="app-panel p-5 space-y-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                            <div>
+                                <h4 class="font-black text-base text-gray-900 dark:text-white">Ödevlerde Zorlanılan Konular</h4>
+                                <p class="text-xs text-gray-500 mt-0.5">Ünite ve konu bazında hata sıklığı</p>
+                            </div>
+                            <span class="text-xs font-bold text-gray-400">${hwInsights.weakTopics.length} konu</span>
+                        </div>
+                        <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                            ${hwInsights.weakTopics.length > 0 ? hwInsights.weakTopics.map(t => `
+                                <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-bold text-gray-900 dark:text-white truncate">${escapeHtml(t.unite)} - ${escapeHtml(t.konu)}</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">${t.assignmentCount} ödevde tekrar etti</p>
+                                    </div>
+                                    <span class="text-xs font-black text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-2.5 py-1 rounded-lg border border-red-100 dark:border-red-900/50">
+                                        ${t.errorCount} hata
+                                    </span>
+                                </div>
+                            `).join('') : `
+                                <div class="py-8 text-center text-xs text-gray-400">
+                                    <i class="fas fa-check-circle text-2xl text-emerald-500 mb-2"></i>
+                                    <p>Ödevlerde kaydedilmiş hata konusu bulunmuyor.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+
+                    <div class="app-panel p-5 space-y-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                            <div>
+                                <h4 class="font-black text-base text-gray-900 dark:text-white">Hata Nedenleri Dağılımı</h4>
+                                <p class="text-xs text-gray-500 mt-0.5">Ödevlerde işaretlenen hata sebepleri</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
+                            ${hwInsights.errorReasons.filter(r => r.count > 0).length > 0 ? hwInsights.errorReasons.filter(r => r.count > 0).map(r => `
+                                <div class="space-y-1">
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="font-bold text-gray-800 dark:text-gray-200">${escapeHtml(r.label)}</span>
+                                        <span class="font-black text-gray-900 dark:text-white">${r.count} soru (%${r.percentage})</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-300" style="width: ${r.percentage}%; background-color: ${r.color || '#3b82f6'}"></div>
+                                    </div>
+                                </div>
+                            `).join('') : `
+                                <div class="py-8 text-center text-xs text-gray-400">
+                                    <i class="fas fa-chart-pie text-2xl text-indigo-500 mb-2"></i>
+                                    <p>Henüz kaydedilmiş hata nedeni dağılımı yok.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hızlı Ödev Aksiyonu -->
+                <div class="flex justify-end pt-2">
+                    <button onclick="openCockpitHomework('${id}')" class="btn-primary min-h-[44px] px-4 py-2 text-sm font-bold flex items-center gap-2">
+                        <i class="fas fa-plus"></i> Yeni Ödev Ata
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // perfSubTab === 'exams'
+    const examPerf = calculateStudentSchoolExamPerformance(student);
+
+    return `
+        ${subTabsNav}
+        <div class="space-y-4">
+            <!-- Genel Deneme Özeti (Section 6 & 12) -->
+            <div class="app-panel p-5">
+                <div class="flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <div>
+                        <h3 class="text-lg font-black text-gray-900 dark:text-white">Genel Deneme Performansı</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">90 soruluk LGS genel deneme sonuçları</p>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        ${examPerf.genelSummary.totalCount} Deneme
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Son Deneme Neti</p>
+                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">${examPerf.genelSummary.latestNet !== null ? `${formatCockpitNet(examPerf.genelSummary.latestNet)} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">En son genel deneme</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Ortalama Net</p>
+                        <p class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${examPerf.genelSummary.averageNet !== null ? `${formatCockpitNet(examPerf.genelSummary.averageNet)} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">${examPerf.genelSummary.completedCount} deneme ortalaması</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">En Yüksek Net</p>
+                        <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${examPerf.genelSummary.maxNet !== null ? `${formatCockpitNet(examPerf.genelSummary.maxNet)} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Zirve net başarısı</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Net Eğilimi</p>
+                        <p class="text-2xl font-black ${examPerf.genelSummary.trendDelta !== null && examPerf.genelSummary.trendDelta >= 0 ? 'text-emerald-600' : (examPerf.genelSummary.trendDelta !== null ? 'text-red-600' : 'text-slate-900 dark:text-white')} mt-1">
+                            ${examPerf.genelSummary.trendDelta !== null ? `${examPerf.genelSummary.trendDelta >= 0 ? '+' : ''}${formatCockpitNet(examPerf.genelSummary.trendDelta)}` : '—'}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-0.5">${examPerf.genelSummary.trendDelta !== null ? (examPerf.genelSummary.trendDelta >= 0 ? 'Son denemede artış' : 'Son denemede düşüş') : 'Yeterli veri yok'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fen Branş Denemeleri Özeti (Section 12) -->
+            ${examPerf.bransSummary.totalCount > 0 ? `
+            <div class="app-panel p-5">
+                <div class="flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <div>
+                        <h3 class="text-lg font-black text-gray-900 dark:text-white">Fen Bilimleri Branş Denemeleri</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">20 soruluk konu ve branş deneme sonuçları</p>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        ${examPerf.bransSummary.totalCount} Branş Denemesi
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Son Branş Neti</p>
+                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">${examPerf.bransSummary.latestNet !== null ? `${formatCockpitNet(examPerf.bransSummary.latestNet)} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Sonuçlanan branş denemesi</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Ortalama Branş Neti</p>
+                        <p class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${examPerf.bransSummary.averageNet !== null ? `${formatCockpitNet(examPerf.bransSummary.averageNet)} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">${examPerf.bransSummary.completedCount} branş ortalaması</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200/60 dark:border-gray-800">
+                        <p class="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">En Yüksek Branş Neti</p>
+                        <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${examPerf.bransSummary.maxNet !== null ? `${formatCockpitNet(examPerf.bransSummary.maxNet)} net` : '—'}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">En iyi branş denemesi</p>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Eksik Analiz Durumu (Section 10) -->
+            ${examPerf.unassignedCount > 0 ? `
+            <div class="p-3.5 bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center gap-3">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                    <i class="fas fa-triangle-exclamation text-sm"></i>
+                </div>
+                <div class="text-xs">
+                    <p class="font-bold text-amber-900 dark:text-amber-200">Eksik Hata Analizi</p>
+                    <p class="text-amber-700 dark:text-amber-400 mt-0.5">${examPerf.unassignedCount} soru için hata nedeni girilmemiş. Deneme düzenleme ekranından hata nedenlerini tamamlayabilirsiniz.</p>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- 2 Kolon: En Çok Zorlanılan Konular vs Hata Nedenleri (Section 8 & 9) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Sol: En Çok Zorlanılan Konular -->
+                <div class="app-panel p-5 space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                        <div>
+                            <h4 class="font-black text-base text-gray-900 dark:text-white">En Çok Zorlanılan Konular</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">Yanlış ve boş soruların konu bazlı sıklığı</p>
+                        </div>
+                        <span class="text-xs font-bold text-gray-400">${examPerf.weakTopics.length} konu</span>
+                    </div>
+                    <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                        ${examPerf.weakTopics.length > 0 ? examPerf.weakTopics.map(t => `
+                            <div class="p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white truncate">${escapeHtml(t.topic)}</p>
+                                    <p class="text-xs text-gray-400 mt-0.5">${t.examCount} farklı denemede tekrar etti</p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded border border-red-100 dark:border-red-900/50">
+                                        ${t.wrong}Y
+                                    </span>
+                                    <span class="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                                        ${t.blank}B
+                                    </span>
+                                    <span class="text-xs font-black text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-2.5 py-0.5 rounded-lg border border-gray-200 dark:border-gray-600 shadow-xs">
+                                        Toplam: ${t.total}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('') : `
+                            <div class="py-8 text-center text-xs text-gray-400">
+                                <i class="fas fa-check-circle text-2xl text-emerald-500 mb-2"></i>
+                                <p>Denemelerde kaydedilmiş konu hatası bulunmuyor.</p>
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <!-- Sağ: Hata Nedenleri Dağılımı -->
+                <div class="app-panel p-5 space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                        <div>
+                            <h4 class="font-black text-base text-gray-900 dark:text-white">Hata Nedenleri</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">Analiz edilmiş hata kodlarının dağılımı</p>
+                        </div>
+                        <span class="text-xs font-bold text-gray-400">${examPerf.analyzedCount} analiz edilmiş</span>
+                    </div>
+                    <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
+                        ${examPerf.analyzedCount > 0 ? examPerf.errorReasons.map(r => `
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between text-xs">
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-black text-white" style="background-color: ${r.color}">${escapeHtml(r.code)}</span>
+                                        <span class="font-bold text-gray-800 dark:text-gray-200">${escapeHtml(r.label)}</span>
+                                    </div>
+                                    <span class="font-black text-gray-900 dark:text-white">${r.count} soru (%${r.percentage})</span>
+                                </div>
+                                <div class="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-300" style="width: ${r.percentage}%; background-color: ${r.color}"></div>
+                                </div>
+                            </div>
+                        `).join('') : `
+                            <div class="py-8 text-center text-xs text-gray-400">
+                                <i class="fas fa-circle-question text-2xl text-amber-500 mb-2"></i>
+                                <p>Henüz analiz edilmiş hata kodu bulunmuyor.</p>
+                                ${examPerf.unassignedCount > 0 ? `<p class="mt-1 text-amber-600 dark:text-amber-400 font-semibold">${examPerf.unassignedCount} soru için hata analizi bekleniyor.</p>` : ''}
+                            </div>
+                        `}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Denemeler Listesi (Section 15 & Scenario O) -->
+            ${examsSectionHtml}
+        </div>
+    `;
+}
+
+export function switchCockpitTab(studentId, tab = 'overview') {
+    window._cockpitTab = tab;
+    return renderStudentCockpit(studentId, store.studentPanelOrigin || 'home', tab, window._cockpitPerfTab || 'homework');
+}
+
+export function switchCockpitPerfSubTab(studentId, subTab = 'homework') {
+    window._cockpitPerfTab = subTab;
+    return renderStudentCockpit(studentId, store.studentPanelOrigin || 'home', 'performance', subTab);
+}
+
+export async function renderStudentCockpit(id, origin = store.studentPanelOrigin || 'home', activeTab = null, perfSubTab = null) {
+    store.currentPage = 'student';
+    if (window.currentPage) window.currentPage = 'student';
+    store.currentStudentId = id;
+    store.studentPanelOrigin = origin;
+    updateMobileNavActive(origin === 'guidance' ? 'mobile-nav-guidance' : 'mobile-nav-home');
+    const student = loadStudentsData().find(item => item.id === id);
+    if (!student) return renderHomeScreen();
+
+    if (activeTab === null) {
+        activeTab = window._cockpitTab || 'overview';
+    }
+    if (perfSubTab === null) {
+        perfSubTab = window._cockpitPerfTab || 'homework';
+    }
+    window._cockpitTab = activeTab;
+    window._cockpitPerfTab = perfSubTab;
+
+    const homeworks = getStudentOdevler(student);
+    const lessons = loadDersKayitlari(id);
+    const schedule = loadSchedule(id);
+    const summary = calculateStudentSummary(student, homeworks, lessons, schedule);
+    const analysis = calculateSmartExamAnalysis(student, homeworks);
+    const cockpit = getCockpitData({ student, homeworks, summary, analysis, timeline: buildStudentTimeline(student, homeworks, lessons) });
+    const statusItems = buildCockpitStatusItems(cockpit);
+    const currentOrigin = origin === 'guidance' ? 'renderGuidancePage()' : 'renderHomeScreen()';
+    const currentOriginLabel = origin === 'guidance' ? 'Rehberlik' : 'Öğrenci Listesi';
+    const subjectNames = Object.fromEntries(GENEL_DERSLER_KEY.map((key, index) => [key, GENEL_DERSLER_GORUNUM[index] || key]));
+    const formatDate = date => formatTimelineDate(date);
+    const upcomingLesson = cockpit.upcomingLesson
+        ? `${new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'short' }).format(cockpit.upcomingLesson.date)} · ${String(cockpit.upcomingLesson.saat || '').padStart(5, '0')}`
+        : 'Planlanmadı';
+    const insights = [
+        ['fa-arrow-trend-up', 'En güçlü ders', cockpit.strongest ? `${subjectNames[cockpit.strongest.subject] || cockpit.strongest.subject} · %${cockpit.strongest.successRate}` : 'Yeterli veri yok'],
+        ['fa-triangle-exclamation', 'Kritik eksik', cockpit.criticalTopic ? `${cockpit.criticalTopic.topic} · ${cockpit.criticalTopic.errors} hata` : 'Yeterli veri yok'],
+        ['fa-magnifying-glass', 'En sık hata', cockpit.mostFrequentError ? cockpit.mostFrequentError.label : 'Yeterli veri yok'],
+        ['fa-bullseye', 'Bu haftaki öncelik', cockpit.priority || 'Henüz öncelik belirlenmedi']
+    ];
+    const timelineHtml = cockpit.timeline.length ? cockpit.timeline.slice(0, 6).map((event, index) => `
+        <div class="relative flex gap-3 ${index < cockpit.timeline.length - 1 ? 'pb-4' : ''}">
+            ${index < cockpit.timeline.length - 1 ? '<span class="absolute left-4 top-8 bottom-0 w-px bg-gray-200 dark:bg-gray-700"></span>' : ''}
+            <span class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-xs text-slate-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"><i class="fas ${cockpitTimelineIcons[event.category] || 'fa-circle-info'}"></i></span>
+            <div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-3"><p class="font-bold text-sm text-gray-800 dark:text-gray-100">${escapeHtml(event.title)}</p><time class="shrink-0 text-xs text-gray-400">${escapeHtml(formatDate(event.date))}</time></div><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(event.detail)}</p></div>
+        </div>`).join('') : '<p class="py-6 text-sm text-gray-500">Henüz etkinlik kaydı yok. Deneme, ödev veya ders kaydı eklendiğinde burada görünür.</p>';
+    const statusHtml = statusItems.length ? statusItems.map(item => `<li class="flex gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0"><i class="fas ${item.icon} mt-0.5 ${item.tone === 'positive' ? 'text-emerald-600' : item.tone === 'critical' ? 'text-red-500' : item.tone === 'warning' ? 'text-amber-600' : 'text-slate-500'}"></i><span class="text-sm text-gray-700 dark:text-gray-300">${escapeHtml(item.text)}</span></li>`).join('') : '<li class="py-5 text-sm text-gray-500">Durum özeti için yeterli veri yok.</li>';
+    const metrics = [
+        ['fa-file-lines', 'Son deneme', summary.latestNet === null ? '—' : `${formatCockpitNet(summary.latestNet)} net`, summary.latestExam ? escapeHtml(summary.latestExam.denemeAdi || formatDate(summary.latestExam.tarih)) : 'Genel deneme kaydı yok'],
+        ['fa-chart-line', `${cockpit.averageCount || 5} deneme ort.`, cockpit.averageNet === null ? '—' : `${formatCockpitNet(cockpit.averageNet)} net`, cockpit.averageCount ? `${cockpit.averageCount} karşılaştırılabilir genel deneme` : 'Yeterli veri yok'],
+        ['fa-list-check', 'Ödev disiplini', cockpit.homeworkCompletionRate === null ? '—' : `%${cockpit.homeworkCompletionRate}`, cockpit.homeworkCompletionRate === null ? 'Ödev kaydı yok' : `${cockpit.completedHomeworkCount} / ${cockpit.homeworkCount} tamamlandı`],
+        ['fa-bullseye', 'Hedef durumu', cockpit.targetGap === null ? '—' : cockpit.targetGap <= 0 ? 'Hedefte' : `${formatCockpitNet(cockpit.targetGap)} net`, cockpit.targetGap === null ? 'Hedef veya son deneme yok' : cockpit.targetGap <= 0 ? 'Son deneme hedefe ulaştı' : 'Hedefe kalan net']
+    ];
+
+    const rawExams = Array.isArray(student.denemeler) ? student.denemeler : [];
+    const sortedExams = rawExams
+        .map((exam, origIdx) => ({ exam, origIdx }))
+        .sort((a, b) => {
+            const dateA = a.exam.tarih || '';
+            const dateB = b.exam.tarih || '';
+            if (dateA !== dateB) {
+                return dateB.localeCompare(dateA);
+            }
+            return b.origIdx - a.origIdx;
+        })
+        .map(item => item.exam);
+
+    const examsSectionHtml = renderCockpitExamsSection(student, sortedExams);
+
+    const topTabsNav = `
+        <nav class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 pb-3" role="tablist" aria-label="Öğrenci Kokpiti Sekmeleri">
+            <button type="button" onclick="switchCockpitTab('${id}', 'overview')" id="cockpit-tab-overview" role="tab" aria-selected="${activeTab === 'overview'}" class="min-h-[44px] px-4 py-2 text-sm font-bold rounded-xl transition flex items-center gap-2 ${activeTab === 'overview' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}">
+                <i class="fas fa-chart-pie"></i> Genel Bakış
+            </button>
+            <button type="button" onclick="switchCockpitTab('${id}', 'performance')" id="cockpit-tab-performance" role="tab" aria-selected="${activeTab === 'performance'}" class="min-h-[44px] px-4 py-2 text-sm font-bold rounded-xl transition flex items-center gap-2 ${activeTab === 'performance' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}">
+                <i class="fas fa-chart-line"></i> Performans
+            </button>
+        </nav>
+    `;
+
+    let mainContentHtml = '';
+    if (activeTab === 'performance') {
+        mainContentHtml = renderCockpitPerformanceTab(student, homeworks, perfSubTab, sortedExams, examsSectionHtml);
+    } else {
+        mainContentHtml = `
             <section class="app-panel p-4 sm:p-5"><div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><p class="text-xs font-black uppercase tracking-[.12em] text-gray-400">Hızlı işlemler</p><p class="mt-1 text-sm text-gray-500">${escapeHtml(student.adSoyad)} seçili kalır.</p></div><div class="flex flex-wrap gap-2"><button onclick="openCockpitHomework('${id}')" class="btn-primary min-h-[44px] px-4"><i class="fas fa-plus mr-1"></i> Ödev Ekle</button><button onclick="openCockpitExam('${id}')" class="btn-secondary min-h-[44px] px-3"><i class="fas fa-file-circle-plus mr-1"></i> Deneme Ekle</button><button onclick="openCockpitLesson('${id}', false)" class="btn-secondary min-h-[44px] px-3"><i class="fas fa-book-open mr-1"></i> Ders Kaydı</button><button onclick="openCockpitLesson('${id}', true)" class="btn-secondary min-h-[44px] px-3"><i class="fas fa-note-sticky mr-1"></i> Not Ekle</button><button onclick="showStudyPlanSetup('${id}')" class="btn-secondary min-h-[44px] px-3"><i class="fas fa-compass mr-1"></i> Çalışma Planı</button></div></div></section>
             <section class="grid grid-cols-2 lg:grid-cols-4 gap-3"><!-- 4 temel metrik -->${metrics.map(([icon, label, value, detail]) => `<article class="app-panel p-4"><div class="flex items-center gap-2 text-gray-400"><i class="fas ${icon} text-xs"></i><p class="text-[11px] font-black uppercase tracking-[.1em]">${label}</p></div><p class="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">${value}</p><p class="mt-1 text-xs text-gray-500">${detail}</p></article>`).join('')}</section>
             <section class="app-panel p-5"><div class="flex items-center justify-between gap-3"><div><h3 class="text-lg font-black">Kritik içgörüler</h3><p class="mt-1 text-sm text-gray-500">Mevcut deneme ve ödev verilerinden hesaplanır.</p></div><i class="fas fa-lightbulb text-slate-400"></i></div><div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">${insights.map(([icon, label, value]) => `<article class="rounded-xl border border-gray-200 p-3.5 dark:border-gray-700"><div class="flex items-center gap-2 text-xs font-black uppercase tracking-[.08em] text-gray-400"><i class="fas ${icon}"></i>${label}</div><p class="mt-2 text-sm font-bold leading-5 text-gray-800 dark:text-gray-100">${escapeHtml(value)}</p></article>`).join('')}</div></section>
             <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(290px,.8fr)]"><article class="app-panel p-5"><div class="flex items-start justify-between gap-3"><div><h3 class="text-lg font-black">Son 5 Deneme Eğilimi</h3><p class="mt-1 text-sm text-gray-500">Yalnız genel ve karşılaştırılabilir denemeler</p></div><button onclick="openCockpitExam('${id}')" class="text-sm font-bold text-indigo-600 dark:text-indigo-300">Deneme ekle</button></div><div class="mt-4 h-56">${cockpit.recentExams.length >= 2 ? '<canvas id="cockpitTrendChart" aria-label="Son beş genel deneme net eğilimi"></canvas>' : '<div class="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500 dark:border-gray-700">Trend için en az 2 genel deneme sonucu gerekli.</div>'}</div>${cockpit.trendDelta !== null ? `<p class="mt-3 text-sm font-semibold ${cockpit.trendDelta >= 0 ? 'text-emerald-600' : 'text-red-600'}"><i class="fas ${cockpit.trendDelta >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-1"></i>Son ${cockpit.recentExams.length} denemede ${formatCockpitNet(Math.abs(cockpit.trendDelta))} net ${cockpit.trendDelta >= 0 ? 'artış' : 'düşüş'} var.</p>` : ''}</article><aside class="app-panel p-5"><h3 class="text-lg font-black">Öğrenci durum özeti</h3><ul class="mt-3">${statusHtml}</ul></aside></section>
             ${examsSectionHtml}
             <section class="grid gap-4 xl:grid-cols-2"><article class="app-panel p-5"><div class="flex items-center justify-between gap-3"><div><h3 class="text-lg font-black">Son etkinlikler</h3><p class="mt-1 text-sm text-gray-500">En güncel 6 hareket</p></div><button onclick="renderOdevTakibi('${id}')" class="text-sm font-bold text-indigo-600 dark:text-indigo-300">Ödevlere git</button></div><div class="mt-5">${timelineHtml}</div></article><aside class="app-panel p-5"><h3 class="text-lg font-black">Yaklaşanlar</h3><div class="mt-4 space-y-3"><div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700"><p class="text-xs font-black uppercase tracking-[.08em] text-gray-400">Sonraki ders</p><p class="mt-1 font-bold">${escapeHtml(upcomingLesson)}</p><p class="mt-1 text-sm text-gray-500">${escapeHtml(cockpit.upcomingLesson?.dersAdi || 'Planlanmadı')}</p></div><div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700"><p class="text-xs font-black uppercase tracking-[.08em] text-gray-400">Ödev teslimi</p><p class="mt-1 font-bold">${escapeHtml(cockpit.pendingHomework ? formatDate(cockpit.pendingHomework.bitisTarihi) : 'Planlanmadı')}</p><p class="mt-1 text-sm text-gray-500">${escapeHtml(cockpit.pendingHomework?.konu || 'Aktif ödev yok')}</p></div><div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700"><p class="text-xs font-black uppercase tracking-[.08em] text-gray-400">Sonraki deneme</p><p class="mt-1 font-bold">Planlanmadı</p><p class="mt-1 text-sm text-gray-500">Deneme atandığında burada görünür.</p></div></div></aside></section>
+        `;
+    }
+
+    document.getElementById('dynamic-content').innerHTML = `
+        <div class="app-page cf-cockpit pb-28 sm:pb-8">
+            <header class="app-page-header cf-cockpit-header"><div class="flex items-start gap-4"><button onclick="${currentOrigin}" class="btn-secondary min-h-[44px] px-3" aria-label="${currentOriginLabel} sayfasına dön"><i class="fas fa-arrow-left"></i></button><div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-lg font-black tracking-wide text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">${escapeHtml(getStudentInitials(student.adSoyad))}</div><div><h2 class="app-page-title">${escapeHtml(student.adSoyad)}</h2><p class="app-page-subtitle">${escapeHtml(student.sinif ? `${student.sinif}. Sınıf` : 'Sınıf belirtilmemiş')} ${student.hedefNet ? `· Hedef: ${escapeHtml(student.hedefNet)} net` : ''}</p><p class="mt-1 text-xs text-gray-500">${[student.okul, student.grup, student.hedefLise].filter(Boolean).map(escapeHtml).join(' · ') || 'Ek okul veya hedef bilgisi yok'}</p></div></div><button onclick="editStudent('${id}')" class="btn-secondary min-h-[44px] px-4"><i class="fas fa-pen mr-1"></i> Düzenle</button></header>
+            ${topTabsNav}
+            ${mainContentHtml}
         </div>`;
 
-    if (cockpit.recentExams.length >= 2 && window.Chart) {
+    if (activeTab === 'overview' && cockpit.recentExams.length >= 2 && window.Chart) {
         const canvas = document.getElementById('cockpitTrendChart');
         if (canvas) {
             window.cockpitTrendChartInstance?.destroy();
@@ -2548,3 +3056,8 @@ window.updateTeacherSchool = updateTeacherSchool;
 window.saveNewResourceBook = saveNewResourceBook;
 window.removeResourceBook = removeResourceBook;
 window.filterSettingsResourceBooks = filterSettingsResourceBooks;
+window.switchCockpitTab = switchCockpitTab;
+window.switchCockpitPerfSubTab = switchCockpitPerfSubTab;
+window.calculateStudentSchoolExamPerformance = calculateStudentSchoolExamPerformance;
+window.renderCockpitPerformanceTab = renderCockpitPerformanceTab;
+window.renderCockpitExamsSection = renderCockpitExamsSection;
