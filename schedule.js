@@ -14,6 +14,65 @@ function getTurkishTodayName() {
     return days[new Date().getDay()];
 }
 
+function normalizeBranchText(str) {
+    return String(str || '')
+        .trim()
+        .replace(/İ/g, 'i')
+        .replace(/I/g, 'ı')
+        .toLowerCase()
+        .replace(/i̇/g, 'i');
+}
+
+export function getScheduleBranchTagClasses(branchName) {
+    const b = normalizeBranchText(branchName);
+    if (b.includes('fen')) {
+        return 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800/80';
+    }
+    if (b.includes('mat')) {
+        return 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80';
+    }
+    if (b.includes('türk') || b.includes('turk')) {
+        return 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80';
+    }
+    if (b.includes('ing')) {
+        return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80';
+    }
+    if (b.includes('sos') || b.includes('inkılap') || b.includes('inkilap')) {
+        return 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80';
+    }
+    if (b.includes('din')) {
+        return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80';
+    }
+    return 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700';
+}
+
+export function getScheduleGradeBadgeClasses(sinif) {
+    const s = String(sinif || '').trim();
+    if (s === '5' || s.startsWith('5')) {
+        return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80';
+    }
+    if (s === '6' || s.startsWith('6')) {
+        return 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80';
+    }
+    if (s === '7' || s.startsWith('7')) {
+        return 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80';
+    }
+    if (s === '8' || s.startsWith('8')) {
+        return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80';
+    }
+    return 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700';
+}
+
+export function getScheduleBranchShortLabel(branchName) {
+    const b = String(branchName || '').trim();
+    const lower = normalizeBranchText(b);
+    if (lower === 'fen bilimleri') return 'Fen';
+    if (lower === 'sosyal bilgiler') return 'Sosyal';
+    if (lower.includes('inkılap') || lower.includes('inkilap')) return 'İnkılap';
+    if (lower === 'din kültürü ve ahlak bilgisi') return 'Din Kültürü';
+    return b || 'Ders';
+}
+
 export function renderSchedulePage() {
     store.currentPage = "schedule";
     updateMobileNavActive('mobile-nav-lessons');
@@ -88,34 +147,38 @@ export function renderSchedulePage() {
         let dayCardsHtml = '';
         if (dayLessons.length === 0) {
             dayCardsHtml = `
-                <div class="flex-1 flex flex-col items-center justify-center py-8 text-center text-gray-400 dark:text-gray-500">
-                    <i class="fas fa-calendar-minus text-lg opacity-40 mb-1.5"></i>
-                    <span class="text-xs font-medium">Ders planlanmadı</span>
+                <div class="flex-1 flex items-center justify-center py-3 text-center text-gray-400 dark:text-gray-500">
+                    <span class="text-[11px] font-medium">0 ders</span>
                 </div>
             `;
         } else {
             dayCardsHtml = dayLessons.map(les => {
+                const branchTagClasses = getScheduleBranchTagClasses(les.rawDers || les.dersAdi);
+                const gradeBadgeClasses = getScheduleGradeBadgeClasses(les.sinif);
+                const branchLabel = getScheduleBranchShortLabel(les.dersAdi);
                 return `
-                    <div onclick="editScheduleLesson('${les.studentId}', ${les.idx})" class="group cursor-pointer bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shadow-xs hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500 transition border-l-4 border-l-blue-600 relative">
+                    <div onclick="editScheduleLesson('${les.studentId}', ${les.idx})" class="group cursor-pointer bg-white dark:bg-gray-800 p-2.5 rounded-xl border border-gray-200/90 dark:border-gray-700/80 shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-500 transition relative">
                         <div class="flex items-center justify-between gap-1 mb-1">
-                            <span class="text-xs font-black text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
+                            <span class="text-[11px] font-black text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-750 px-1.5 py-0.5 rounded">
                                 ${escapeHtml(les.saat)}
                             </span>
-                            <div class="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition" onclick="event.stopPropagation()">
-                                <button onclick="editScheduleLesson('${les.studentId}', ${les.idx})" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition" title="Düzenle" aria-label="Düzenle">
+                            <div class="flex items-center -mr-1" onclick="event.stopPropagation()">
+                                <button onclick="event.stopPropagation(); editScheduleLesson('${les.studentId}', ${les.idx})" class="p-1 min-w-[32px] min-h-[32px] sm:min-w-[28px] sm:min-h-[28px] inline-flex items-center justify-center text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition" title="Düzenle" aria-label="Düzenle">
                                     <i class="fas fa-edit text-xs"></i>
                                 </button>
-                                <button onclick="deleteScheduleLesson('${les.studentId}', ${les.idx})" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition" title="Sil" aria-label="Sil">
+                                <button onclick="event.stopPropagation(); deleteScheduleLesson('${les.studentId}', ${les.idx})" class="p-1 min-w-[32px] min-h-[32px] sm:min-w-[28px] sm:min-h-[28px] inline-flex items-center justify-center text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition" title="Sil" aria-label="Sil">
                                     <i class="fas fa-trash-alt text-xs"></i>
                                 </button>
                             </div>
                         </div>
-                        <div class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate mt-1">
+                        <div class="font-bold text-xs text-gray-900 dark:text-gray-100 truncate mt-0.5" title="${escapeHtml(les.studentName)}">
                             ${escapeHtml(les.studentName)}
                         </div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between mt-1 pt-1 border-t border-gray-100 dark:border-gray-700/50">
-                            <span class="truncate font-medium">${escapeHtml(les.dersAdi)}</span>
-                            ${les.sinif ? `<span class="text-xs font-bold text-gray-400 dark:text-gray-500 ml-1 whitespace-nowrap">${escapeHtml(les.sinif)}. Sınıf</span>` : ''}
+                        <div class="flex flex-wrap items-center gap-1 mt-1.5">
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${branchTagClasses}">
+                                ${escapeHtml(branchLabel)}
+                            </span>
+                            ${les.sinif ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${gradeBadgeClasses}">${escapeHtml(les.sinif)}. Sınıf</span>` : ''}
                         </div>
                     </div>
                 `;
@@ -123,15 +186,15 @@ export function renderSchedulePage() {
         }
 
         return `
-            <div class="cf-day-column flex flex-col rounded-2xl border transition min-w-0 ${isToday ? 'border-blue-400/80 dark:border-blue-500/80 bg-blue-50/20 dark:bg-blue-950/15 shadow-sm ring-1 ring-blue-300 dark:ring-blue-700' : 'border-gray-200 dark:border-gray-700/80 bg-gray-50/40 dark:bg-gray-850/40'}">
-                <div class="flex items-center justify-between p-3 border-b ${isToday ? 'border-blue-100 dark:border-blue-900/50 bg-blue-100/50 dark:bg-blue-900/30 rounded-t-2xl' : 'border-gray-200/80 dark:border-gray-700/60'}">
+            <div class="cf-day-column flex flex-col rounded-xl border transition min-w-0 ${isToday ? 'border-blue-400/80 dark:border-blue-500/80 bg-blue-50/15 dark:bg-blue-950/15 shadow-xs ring-1 ring-blue-300 dark:ring-blue-700' : 'border-gray-200 dark:border-gray-700/80 bg-gray-50/40 dark:bg-gray-850/40'}">
+                <div class="flex items-center justify-between px-2.5 py-2 border-b ${isToday ? 'border-blue-100 dark:border-blue-900/50 bg-blue-100/50 dark:bg-blue-900/30 rounded-t-xl' : 'border-gray-200/80 dark:border-gray-700/60'}">
                     <div class="flex items-center gap-1.5 min-w-0">
-                        <span class="font-black text-sm text-gray-850 dark:text-gray-100 truncate">${gun}</span>
-                        ${isToday ? '<span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-600 text-white flex-shrink-0">Bugün</span>' : ''}
+                        <span class="font-black text-xs text-gray-850 dark:text-gray-100 truncate">${gun}</span>
+                        ${isToday ? '<span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-blue-600 text-white flex-shrink-0">Bugün</span>' : ''}
                     </div>
-                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded-md border border-gray-200/60 dark:border-gray-700/60">${dayLessons.length}</span>
+                    <span class="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200/60 dark:border-gray-700/60">${dayLessons.length}</span>
                 </div>
-                <div class="p-2.5 flex-1 flex flex-col gap-2 min-h-[140px]">
+                <div class="p-2 flex-1 flex flex-col gap-1.5 min-h-[52px]">
                     ${dayCardsHtml}
                 </div>
             </div>
@@ -159,35 +222,38 @@ export function renderSchedulePage() {
     let mobileDayCardsHtml = '';
     if (activeDayLessons.length === 0) {
         mobileDayCardsHtml = `
-            <div class="py-10 text-center text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-                <i class="fas fa-calendar-day text-2xl opacity-40 mb-2"></i>
-                <p class="font-bold text-sm text-gray-700 dark:text-gray-300">${activeDay} günü planlı ders yok</p>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Yeni bir ders eklemek için yukarıdaki Ders Ekle butonunu kullanabilirsiniz.</p>
+            <div class="py-6 text-center text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4">
+                <p class="font-bold text-xs text-gray-700 dark:text-gray-300">${activeDay} günü planlı ders yok</p>
             </div>
         `;
     } else {
         mobileDayCardsHtml = activeDayLessons.map(les => {
+            const branchTagClasses = getScheduleBranchTagClasses(les.rawDers || les.dersAdi);
+            const gradeBadgeClasses = getScheduleGradeBadgeClasses(les.sinif);
+            const branchLabel = getScheduleBranchShortLabel(les.dersAdi);
             return `
-                <div onclick="editScheduleLesson('${les.studentId}', ${les.idx})" class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xs active:scale-[0.99] transition border-l-4 border-l-blue-600">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-black text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg">
+                <div onclick="editScheduleLesson('${les.studentId}', ${les.idx})" class="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200/90 dark:border-gray-700/80 shadow-2xs active:scale-[0.99] transition">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-black text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-750 px-2 py-0.5 rounded">
                             ${escapeHtml(les.saat)}
                         </span>
-                        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
-                            <button onclick="editScheduleLesson('${les.studentId}', ${les.idx})" class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Düzenle" aria-label="Düzenle">
+                        <div class="flex items-center gap-1 -mr-1" onclick="event.stopPropagation()">
+                            <button onclick="event.stopPropagation(); editScheduleLesson('${les.studentId}', ${les.idx})" class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Düzenle" aria-label="Düzenle">
                                 <i class="fas fa-edit text-sm"></i>
                             </button>
-                            <button onclick="deleteScheduleLesson('${les.studentId}', ${les.idx})" class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Sil" aria-label="Sil">
+                            <button onclick="event.stopPropagation(); deleteScheduleLesson('${les.studentId}', ${les.idx})" class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Sil" aria-label="Sil">
                                 <i class="fas fa-trash-alt text-sm"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="font-black text-base text-gray-900 dark:text-gray-100">
+                    <div class="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">
                         ${escapeHtml(les.studentName)}
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/60 font-semibold">
-                        <span>${escapeHtml(les.dersAdi)}</span>
-                        ${les.sinif ? `<span>${escapeHtml(les.sinif)}. Sınıf</span>` : ''}
+                    <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span class="text-[11px] font-bold px-2 py-0.5 rounded ${branchTagClasses}">
+                            ${escapeHtml(branchLabel)}
+                        </span>
+                        ${les.sinif ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded ${gradeBadgeClasses}">${escapeHtml(les.sinif)}. Sınıf</span>` : ''}
                     </div>
                 </div>
             `;
@@ -205,81 +271,72 @@ export function renderSchedulePage() {
             </header>
             ${renderDerslerTabBarHtml('schedule')}
 
-            <!-- Headline Metrics Summary -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5">
-                <div class="app-panel p-4 flex flex-col justify-between">
-                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Toplam Haftalık Ders</span>
-                    <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-blue-600 dark:text-blue-400">${totalWeeklyLessons}</span>
-                        <span class="text-xs font-bold text-gray-400">Ders</span>
-                    </div>
-                </div>
-                <div class="app-panel p-4 flex flex-col justify-between">
-                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Bugünkü Dersler</span>
-                    <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-blue-600 dark:text-blue-400">${todayLessonsCount}</span>
-                        <span class="text-xs font-bold text-gray-400">${todayName}</span>
-                    </div>
-                </div>
-                <div class="app-panel p-4 flex flex-col justify-between">
-                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Programlı Öğrenci</span>
-                    <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-blue-600 dark:text-blue-400">${scheduledStudentsCount}</span>
-                        <span class="text-xs font-bold text-gray-400">Öğrenci</span>
-                    </div>
-                </div>
-                <div class="app-panel p-4 flex flex-col justify-between">
-                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Boş Gün Sayısı</span>
-                    <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-blue-600 dark:text-blue-400">${emptyDaysCount}</span>
-                        <span class="text-xs font-bold text-gray-400">Gün</span>
-                    </div>
+            <!-- Compact Summary Bar -->
+            <div id="schedule-compact-summary" class="app-panel py-2.5 px-4 mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span class="inline-flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100">
+                        <span class="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400"></span>
+                        <span><strong class="font-black text-blue-600 dark:text-blue-400 text-sm">${totalWeeklyLessons}</strong> Ders</span>
+                    </span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span class="inline-flex items-center gap-1 text-gray-600 dark:text-gray-300">
+                        <strong class="font-black text-gray-900 dark:text-gray-100 text-sm">${scheduledStudentsCount}</strong> Öğrenci
+                    </span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span class="inline-flex items-center gap-1 text-gray-600 dark:text-gray-300">
+                        Bugün <strong class="font-black ${todayLessonsCount > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'} text-sm">${todayLessonsCount}</strong> Ders
+                    </span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
+                        ${emptyDaysCount} Boş Gün
+                    </span>
                 </div>
             </div>
 
             <!-- Schedule Board Main Panel -->
-            <div class="app-panel p-4 md:p-6">
+            <div class="app-panel p-4 md:p-5">
                 <!-- Toolbar & Filters -->
-                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-gray-200/80 dark:border-gray-700/80 pb-4">
-                    <div>
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200/80 dark:border-gray-700/80">
+                    <div class="min-w-0">
                         <h3 class="font-black text-base text-gray-900 dark:text-white flex items-center gap-2">
                             <span>Haftalık Çizelge</span>
-                            <span class="text-xs font-bold text-gray-400 dark:text-gray-500">(${selectedStudentId === 'all' ? 'Tüm Öğrenciler' : (students.find(s => s.id === selectedStudentId)?.adSoyad || '')})</span>
+                            ${selectedStudentId !== 'all' ? `<span class="text-xs font-bold text-gray-400 dark:text-gray-500 truncate">(${escapeHtml(students.find(s => s.id === selectedStudentId)?.adSoyad || '')})</span>` : ''}
                         </h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Haftalık ders dağılımını gün kolonlarında inceleyin.</p>
                     </div>
-                    <div class="flex flex-col lg:flex-row lg:items-center gap-3 w-full lg:w-auto min-w-0">
-                        <div class="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700 w-full lg:w-auto min-w-0">
-                            <label class="text-xs font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap pl-1">Filtre:</label>
-                            <select id="scheduleStudentSelect" class="student-form-input text-xs font-bold py-1 px-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-lg min-w-0" style="padding: 4px 10px !important;">
-                                <option value="all" ${selectedStudentId === 'all' ? 'selected' : ''}>Tüm Öğrenciler (${allSchedules.length} Ders)</option>
-                                ${students.map(s => {
-                                    const c = allSchedules.filter(l => l.studentId === s.id).length;
-                                    return `<option value="${s.id}" ${s.id === selectedStudentId ? 'selected' : ''}>${escapeHtml(s.adSoyad)} (${c} Ders)</option>`;
-                                }).join('')}
+                    <div class="flex items-center gap-2.5 w-full lg:w-auto min-w-0">
+                        <div class="flex-1 lg:flex-initial min-w-0">
+                            <select id="scheduleStudentSelect" class="student-form-input text-xs font-bold py-2 px-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-xl w-full lg:w-auto min-h-[44px]">
+                                <option value="all" ${selectedStudentId === 'all' ? 'selected' : ''}>Tüm Öğrenciler</option>
+                                ${students.map(s => `<option value="${s.id}" ${s.id === selectedStudentId ? 'selected' : ''}>${escapeHtml(s.adSoyad)}</option>`).join('')}
                             </select>
                         </div>
-                        <button onclick="showAddScheduleModal('${selectedStudentId === 'all' ? (students[0]?.id || '') : selectedStudentId}')" class="btn-primary px-4 py-2 text-xs flex items-center justify-center gap-1.5 min-h-[44px] w-full lg:w-auto shadow-sm">
-                            <i class="fas fa-plus-circle"></i> Ders Ekle
+                        <button onclick="showAddScheduleModal('${selectedStudentId === 'all' ? (students[0]?.id || '') : selectedStudentId}')" class="btn-primary px-3.5 py-2 text-xs flex items-center justify-center gap-1.5 min-h-[44px] flex-shrink-0 shadow-sm rounded-xl">
+                            <i class="fas fa-plus-circle"></i> <span>Ders Ekle</span>
                         </button>
                     </div>
                 </div>
 
+                ${totalWeeklyLessons === 0 ? `
+                    <div class="text-xs text-gray-500 dark:text-gray-400 bg-gray-50/80 dark:bg-gray-850/80 border border-gray-200 dark:border-gray-700/80 rounded-xl p-3 mb-3 text-center">
+                        Bu hafta planlanmış ders yok.
+                    </div>
+                ` : ''}
+
                 <!-- Desktop / Tablet Day Columns Board -->
-                <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3.5 items-start">
+                <div class="hidden md:grid md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-start">
                     ${dayColumnsHtml}
                 </div>
 
                 <!-- Mobile View (Day Tabs & Cards) -->
                 <div class="block md:hidden">
-                    <div class="flex items-center gap-1.5 overflow-x-auto pb-3 mb-3 scrollbar-none">
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-2.5 mb-3 scrollbar-none">
                         ${mobileTabsHtml}
                     </div>
-                    <div class="flex items-center justify-between mb-3 px-1">
+                    <div class="flex items-center justify-between mb-2.5 px-1">
                         <span class="font-black text-sm text-gray-800 dark:text-gray-200">${activeDay}</span>
                         <span class="text-xs font-bold text-blue-600 dark:text-blue-400">${activeDayLessons.length} Ders</span>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-2.5">
                         ${mobileDayCardsHtml}
                     </div>
                 </div>
@@ -557,3 +614,6 @@ window.editScheduleLesson = editScheduleLesson;
 window.deleteScheduleLesson = deleteScheduleLesson;
 window.setScheduleActiveDay = setScheduleActiveDay;
 window.setScheduleViewMode = setScheduleViewMode;
+window.getScheduleBranchTagClasses = getScheduleBranchTagClasses;
+window.getScheduleGradeBadgeClasses = getScheduleGradeBadgeClasses;
+window.getScheduleBranchShortLabel = getScheduleBranchShortLabel;
