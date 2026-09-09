@@ -567,12 +567,61 @@ export function isFenBranchExam(exam, student) {
  * section in a general exam. Uses exam.dersBilgileri order and counts, with safe fallback
  * to checking exam.sorular[].konuAdi.
  *
+/**
+ * Helper to determine if an exam belongs to 8th Grade / LGS.
+ * Checks exam metadata, student profile, group, and title cues.
+ * Strictly rejects grades 5, 6, and 7.
+ *
  * @param {Object} exam
+ * @param {Object} [student]
+ * @returns {boolean}
+ */
+export function isGrade8OrLgsExam(exam, student) {
+    if (!exam) return false;
+
+    const checkGrade = (val) => {
+        if (val === null || val === undefined) return null;
+        const s = String(val).trim().toLocaleLowerCase('tr-TR');
+        if (/^[567](\b|\D)/.test(s) || s === '5' || s === '6' || s === '7') return false;
+        if (/^8(\b|\D)/.test(s) || s === '8' || s.includes('lgs')) return true;
+        return null;
+    };
+
+    // 1. Explicit non-8 rejection (5, 6, 7)
+    if (checkGrade(exam.sinif) === false || checkGrade(exam.sinifSeviyesi) === false) return false;
+    if (student && checkGrade(student.sinif) === false) return false;
+
+    // 2. Explicit Grade 8 / LGS confirmation
+    if (checkGrade(exam.sinif) === true || checkGrade(exam.sinifSeviyesi) === true) return true;
+    if (student && (checkGrade(student.sinif) === true || checkGrade(student.grup) === true)) return true;
+
+    // 3. Deneme title cues (e.g. 'Özdebir LGS', '8. Sınıf Genel Deneme')
+    const title = String(exam.denemeAdi || exam.ad || '').trim().toLocaleLowerCase('tr-TR');
+    if (title.includes('lgs') || /(?<!\d)8\s*\.?\s*s[ıi]n[ıi]f/i.test(title)) return true;
+
+    return false;
+}
+
+/**
+ * Pure, read-only helper to determine the question indices of the Science ("Fen Bilimleri")
+ * section in a general exam.
+ *
+ * Precedence:
+ * A. Dynamic Metadata: uses exam.dersBilgileri order and counts.
+ * B. Question Labels: search exam.sorular for explicit 'Fen Bilimleri' tag.
+ * C. Standard LGS Fallback: for verified 8th Grade / LGS General Exams with exactly 90 questions,
+ *    returns indices 70..89 (questions 71–90).
+ * D. Other cases: returns empty array [].
+ *
+ * @param {Object} exam
+ * @param {Object} [student]
  * @returns {number[]} Array of 0-based question indices in exam.sorular
  */
-export function getGeneralExamFenQuestionIndexes(exam) {
+export function getGeneralExamFenQuestionIndexes(exam, student) {
     if (!exam || exam.tip !== 'genel') return [];
     const indices = [];
+
+    // A. Dynamic Metadata: exam.dersBilgileri
     const dersBilgileri = Array.isArray(exam.dersBilgileri) ? exam.dersBilgileri : [];
     const fenIndex = dersBilgileri.findIndex(d => d.ders === 'Fen Bilimleri');
 
@@ -588,15 +637,32 @@ export function getGeneralExamFenQuestionIndexes(exam) {
         return indices;
     }
 
-    // Fallback: search exam.sorular for 'Fen Bilimleri' or canonical Fen topics
+    // B. Question labels: search exam.sorular for explicit 'Fen Bilimleri' tag
     if (Array.isArray(exam.sorular)) {
         exam.sorular.forEach((q, idx) => {
             if (q && (q.konuAdi === 'Fen Bilimleri' || q.ders === 'Fen Bilimleri')) {
                 indices.push(idx);
             }
         });
+        if (indices.length > 0) {
+            return indices;
+        }
     }
-    return indices;
+
+    // C. Standard LGS Fallback: verified Grade 8 / LGS general exam with exactly 90 questions
+    const isLgs8 = isGrade8OrLgsExam(exam, student);
+    const totalQuestions = Number(exam.toplamSoru) || (Array.isArray(exam.sorular) ? exam.sorular.length : 0);
+
+    if (isLgs8 && totalQuestions === 90) {
+        const maxIndex = Array.isArray(exam.sorular) ? Math.min(exam.sorular.length, 90) : 90;
+        for (let i = 70; i < maxIndex; i++) {
+            indices.push(i);
+        }
+        return indices;
+    }
+
+    // D. All other cases
+    return [];
 }
 
 /**
@@ -604,15 +670,17 @@ export function getGeneralExamFenQuestionIndexes(exam) {
  * from a general exam.
  *
  * @param {Object} exam
+ * @param {Object} [student]
  * @returns {Object[]} Array of question objects
  */
-export function getGeneralExamFenQuestions(exam) {
+export function getGeneralExamFenQuestions(exam, student) {
     if (!exam || !Array.isArray(exam.sorular)) return [];
-    const indices = getGeneralExamFenQuestionIndexes(exam);
+    const indices = getGeneralExamFenQuestionIndexes(exam, student);
     return indices.map(idx => exam.sorular[idx]).filter(Boolean);
 }
 
 if (typeof window !== 'undefined') {
+    window.isGrade8OrLgsExam = isGrade8OrLgsExam;
     window.getGeneralExamFenQuestionIndexes = getGeneralExamFenQuestionIndexes;
     window.getGeneralExamFenQuestions = getGeneralExamFenQuestions;
 }

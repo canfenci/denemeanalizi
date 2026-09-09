@@ -287,6 +287,7 @@ const { store, STORAGE_KEY, localDataKey } = await import('../store.js');
 const {
     getGeneralExamFenQuestionIndexes,
     getGeneralExamFenQuestions,
+    isGrade8OrLgsExam,
     editGenelExam,
     goToGeneralFenStep2,
     goToGeneralStep1,
@@ -624,4 +625,274 @@ test('Scenario U: Non-Fen branch exam flow regression is fully preserved', () =>
     };
     const student = { id: 'std_m_1', sinif: '8', denemeler: [mathBranchExam] };
     assert.equal(isFenBranchExam(mathBranchExam, student), false);
+});
+
+// ============================================================================
+// PART 5: UX-COCKPIT-01.2 8. SINIF / LGS FEN FALLBACK & GRADE ISOLATION (A-J)
+// ============================================================================
+
+test('UX-COCKPIT-01.2 Test A: LGS + metadata -> Fen 71–90 PASS', () => {
+    const exam = {
+        id: 'ex_lgs_meta',
+        tip: 'genel',
+        sinif: '8',
+        toplamSoru: 90,
+        dersBilgileri: [
+            { ders: 'Türkçe', adet: 20 },
+            { ders: 'İnkılap', adet: 10 },
+            { ders: 'Din', adet: 10 },
+            { ders: 'İngilizce', adet: 10 },
+            { ders: 'Matematik', adet: 20 },
+            { ders: 'Fen Bilimleri', adet: 20 }
+        ],
+        sorular: Array.from({ length: 90 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'dogru',
+            konuAdi: i >= 70 ? 'Fen Konusu' : 'Diğer',
+            hataKodu: null
+        }))
+    };
+    const indices = getGeneralExamFenQuestionIndexes(exam);
+    assert.equal(indices.length, 20);
+    assert.equal(indices[0], 70);
+    assert.equal(indices[19], 89);
+
+    const questions = getGeneralExamFenQuestions(exam);
+    assert.equal(questions[0].soruNo, 71);
+    assert.equal(questions[19].soruNo, 90);
+});
+
+test('UX-COCKPIT-01.2 Test B: LGS + no metadata + explicit Fen labels -> labels over 20 questions PASS', () => {
+    const exam = {
+        id: 'ex_lgs_no_meta_labels',
+        tip: 'genel',
+        sinif: '8',
+        toplamSoru: 90,
+        sorular: Array.from({ length: 90 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'dogru',
+            konuAdi: i >= 70 ? 'Fen Bilimleri' : 'Diğer',
+            hataKodu: null
+        }))
+    };
+    const indices = getGeneralExamFenQuestionIndexes(exam);
+    assert.equal(indices.length, 20);
+    assert.equal(indices[0], 70);
+    assert.equal(indices[19], 89);
+});
+
+test('UX-COCKPIT-01.2 Test C: LGS + no metadata + no Fen labels -> fallback 71–90 PASS', () => {
+    const exam = {
+        id: 'ex_lgs_pure_fallback',
+        tip: 'genel',
+        sinif: '8',
+        denemeAdi: '8. Sınıf LGS Deneme Sınavı',
+        toplamSoru: 90,
+        sorular: Array.from({ length: 90 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: i >= 70 ? 'yanlis' : 'dogru',
+            konuAdi: i >= 70 ? 'Mevsimlerin Oluşumu' : 'Sözcükte Anlam',
+            hataKodu: i >= 70 ? 'D' : null
+        }))
+    };
+    const student = { id: 'std_lgs_c', sinif: '8' };
+    const indices = getGeneralExamFenQuestionIndexes(exam, student);
+    assert.equal(indices.length, 20);
+    assert.equal(indices[0], 70);
+    assert.equal(indices[19], 89);
+
+    const questions = getGeneralExamFenQuestions(exam, student);
+    assert.equal(questions.length, 20);
+    assert.equal(questions[0].soruNo, 71);
+    assert.equal(questions[19].soruNo, 90);
+});
+
+test('UX-COCKPIT-01.2 Test D: Grade 7 + metadata -> dynamic PASS', () => {
+    const exam = {
+        id: 'ex_grade7_dyn',
+        tip: 'genel',
+        sinif: '7',
+        toplamSoru: 75,
+        dersBilgileri: [
+            { ders: 'Türkçe', adet: 15 },
+            { ders: 'Sosyal Bilgiler', adet: 10 },
+            { ders: 'Din Kültürü', adet: 5 },
+            { ders: 'İngilizce', adet: 10 },
+            { ders: 'Matematik', adet: 15 },
+            { ders: 'Fen Bilimleri', adet: 15 }
+        ],
+        sorular: Array.from({ length: 75 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'dogru',
+            konuAdi: 'Genel Soru',
+            hataKodu: null
+        }))
+    };
+    const indices = getGeneralExamFenQuestionIndexes(exam);
+    assert.equal(indices.length, 15);
+    assert.equal(indices[0], 55);
+    assert.equal(indices[14], 69);
+});
+
+test('UX-COCKPIT-01.2 Test E: Grade 7 + no metadata -> [] PASS', () => {
+    const exam = {
+        id: 'ex_grade7_no_meta',
+        tip: 'genel',
+        sinif: '7',
+        toplamSoru: 90, // even with 90 questions, 7th grade must NOT get LGS fallback
+        sorular: Array.from({ length: 90 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'yanlis',
+            konuAdi: 'Genel Soru ' + (i + 1),
+            hataKodu: null
+        }))
+    };
+    const student = { id: 'std_g7', sinif: '7' };
+    const indices = getGeneralExamFenQuestionIndexes(exam, student);
+    assert.deepEqual(indices, []);
+});
+
+test('UX-COCKPIT-01.2 Test F: Grade 6 + Fen middle + metadata -> dynamic middle section PASS', () => {
+    const exam = {
+        id: 'ex_grade6_middle',
+        tip: 'genel',
+        sinif: '6',
+        toplamSoru: 60,
+        dersBilgileri: [
+            { ders: 'Türkçe', adet: 15 },
+            { ders: 'Fen Bilimleri', adet: 15 },
+            { ders: 'Matematik', adet: 15 },
+            { ders: 'Sosyal Bilgiler', adet: 15 }
+        ],
+        sorular: Array.from({ length: 60 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'dogru',
+            konuAdi: 'Soru ' + (i + 1),
+            hataKodu: null
+        }))
+    };
+    const indices = getGeneralExamFenQuestionIndexes(exam);
+    assert.equal(indices.length, 15);
+    assert.equal(indices[0], 15);
+    assert.equal(indices[14], 29);
+});
+
+test('UX-COCKPIT-01.2 Test G: Grade 5 + no metadata -> [] PASS', () => {
+    const exam = {
+        id: 'ex_grade5_no_meta',
+        tip: 'genel',
+        sinif: '5',
+        toplamSoru: 60,
+        sorular: Array.from({ length: 60 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'yanlis',
+            konuAdi: 'Soru ' + (i + 1),
+            hataKodu: null
+        }))
+    };
+    const student = { id: 'std_g5', sinif: '5' };
+    const indices = getGeneralExamFenQuestionIndexes(exam, student);
+    assert.deepEqual(indices, []);
+});
+
+test('UX-COCKPIT-01.2 Test H: 8. sınıf + metadata Fen farklı sırada -> metadata wins, fallback ignored PASS', () => {
+    const exam = {
+        id: 'ex_grade8_custom_order',
+        tip: 'genel',
+        sinif: '8',
+        toplamSoru: 90,
+        dersBilgileri: [
+            { ders: 'Türkçe', adet: 20 },
+            { ders: 'Fen Bilimleri', adet: 20 }, // Fen is 2nd! (indices 20..39)
+            { ders: 'Matematik', adet: 20 },
+            { ders: 'İnkılap', adet: 10 },
+            { ders: 'Din', adet: 10 },
+            { ders: 'İngilizce', adet: 10 }
+        ],
+        sorular: Array.from({ length: 90 }, (_, i) => ({
+            soruNo: i + 1,
+            durum: 'dogru',
+            konuAdi: 'Soru ' + (i + 1),
+            hataKodu: null
+        }))
+    };
+    const student = { id: 'std_g8_h', sinif: '8' };
+    const indices = getGeneralExamFenQuestionIndexes(exam, student);
+    assert.equal(indices.length, 20);
+    assert.equal(indices[0], 20);
+    assert.equal(indices[19], 39);
+    // Did NOT use 70..89 fallback because metadata is present and overrides fallback
+    assert.notEqual(indices[0], 70);
+});
+
+test('UX-COCKPIT-01.2 Test I: Branch exam -> fallback ignored PASS', () => {
+    const branchExam = {
+        id: 'ex_branch_i',
+        tip: 'branş',
+        sinif: '8',
+        toplamSoru: 90,
+        sorular: Array.from({ length: 90 }, (_, i) => ({ soruNo: i + 1, durum: 'dogru' }))
+    };
+    const indices = getGeneralExamFenQuestionIndexes(branchExam);
+    assert.deepEqual(indices, []);
+});
+
+test('UX-COCKPIT-01.2 Test J: Non-general 90-question fixture -> fallback ignored PASS', () => {
+    const nonGeneralExam = {
+        id: 'ex_non_gen_j',
+        tip: 'deneme', // not 'genel'
+        sinif: '8',
+        toplamSoru: 90,
+        sorular: Array.from({ length: 90 }, (_, i) => ({ soruNo: i + 1, durum: 'dogru' }))
+    };
+    const indices = getGeneralExamFenQuestionIndexes(nonGeneralExam);
+    assert.deepEqual(indices, []);
+});
+
+test('UX-COCKPIT-01.2 Test K: Grade/LGS detection boundary matrix (8, 8. Sınıf, 8-A LGS, 8B, LGS Kampı, 7, 7-B, 6. Sınıf, 5, 80, 18, null, undefined)', () => {
+    const matrix = [
+        // Expected True (8 / LGS)
+        { val: '8', expected: true },
+        { val: '8. Sınıf', expected: true },
+        { val: '8-A LGS', expected: true },
+        { val: '8B', expected: true },
+        { val: 'LGS Kampı', expected: true },
+        // Expected False (explicit other grades)
+        { val: '7', expected: false },
+        { val: '7-B', expected: false },
+        { val: '6. Sınıf', expected: false },
+        { val: '5', expected: false },
+        // Boundary non-matches (must NOT be true)
+        { val: '80', expected: false },
+        { val: '18', expected: false },
+        { val: null, expected: false },
+        { val: undefined, expected: false }
+    ];
+
+    for (const { val, expected } of matrix) {
+        // Test via isGrade8OrLgsExam directly on exam
+        const is8Exam = isGrade8OrLgsExam({ tip: 'genel', sinif: val });
+        assert.equal(is8Exam, expected, `Exam sinif "${val}" expected ${expected} but got ${is8Exam}`);
+
+        // Test via isGrade8OrLgsExam on student
+        const is8Student = isGrade8OrLgsExam({ tip: 'genel' }, { sinif: val });
+        assert.equal(is8Student, expected, `Student sinif "${val}" expected ${expected} but got ${is8Student}`);
+
+        // Test end-to-end via getGeneralExamFenQuestionIndexes with 90 questions and no metadata
+        const exam90 = {
+            id: `ex_matrix_${val}`,
+            tip: 'genel',
+            sinif: val,
+            toplamSoru: 90,
+            sorular: Array.from({ length: 90 }, (_, i) => ({ soruNo: i + 1, durum: 'dogru' }))
+        };
+        const indices = getGeneralExamFenQuestionIndexes(exam90);
+        if (expected) {
+            assert.equal(indices.length, 20, `Exam sinif "${val}" must receive 20 questions fallback`);
+            assert.equal(indices[0], 70);
+            assert.equal(indices[19], 89);
+        } else {
+            assert.deepEqual(indices, [], `Exam sinif "${val}" must NOT receive fallback`);
+        }
+    }
 });

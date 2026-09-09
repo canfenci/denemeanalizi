@@ -308,7 +308,7 @@ export function calculateStudentSchoolExamPerformance(student) {
 
         let questions = [];
         if (exam.tip === 'genel') {
-            questions = getGeneralExamFenQuestions(exam);
+            questions = getGeneralExamFenQuestions(exam, student);
         } else if (exam.tip === 'branş' || isFenBranchExam(exam, student)) {
             questions = Array.isArray(exam.sorular) ? exam.sorular : [];
         }
