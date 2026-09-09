@@ -403,8 +403,10 @@ export function updateMobileNavActive(activeId) {
         let normalized = activeId;
         if (normalized === 'mobile-nav-schedule' || normalized === 'sidebar-nav-schedule') normalized = 'mobile-nav-lessons';
         if (normalized === 'mobile-nav-groups' || normalized === 'sidebar-nav-groups') normalized = 'mobile-nav-home';
-
-        if (normalized.startsWith('mobile-nav-')) {
+        if (normalized === 'topbar-nav-general' || normalized === 'sidebar-nav-general' || normalized === 'general' || normalized === 'settings') {
+            mobileId = 'topbar-nav-general';
+            sidebarId = 'sidebar-nav-general';
+        } else if (normalized.startsWith('mobile-nav-')) {
             mobileId = normalized;
             sidebarId = normalized.replace('mobile-nav-', 'sidebar-nav-');
         } else if (normalized.startsWith('sidebar-nav-')) {
@@ -416,12 +418,20 @@ export function updateMobileNavActive(activeId) {
         }
     }
 
-    // 2. Update mobile bottom navigation buttons
+    // 2. Update mobile bottom navigation buttons and topbar actions
     document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
         btn.classList.remove('text-blue-600', 'dark:text-blue-400', 'active');
         btn.classList.add('text-gray-500');
     });
-    if (mobileId) {
+    const topbarSettingsBtn = document.getElementById('topbar-nav-general');
+    if (topbarSettingsBtn) {
+        if (mobileId === 'topbar-nav-general') {
+            topbarSettingsBtn.classList.add('bg-white/25', 'ring-2', 'ring-white/40');
+        } else {
+            topbarSettingsBtn.classList.remove('bg-white/25', 'ring-2', 'ring-white/40');
+        }
+    }
+    if (mobileId && mobileId !== 'topbar-nav-general') {
         const activeBtn = document.getElementById(mobileId);
         if (activeBtn) {
             activeBtn.classList.remove('text-gray-500');

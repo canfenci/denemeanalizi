@@ -2225,19 +2225,30 @@ export function renderGenelIslemler() {
     const html = `
         <div class="app-page max-w-3xl">
             <header class="app-page-header"><div><h2 class="app-page-title">Ayarlar</h2><p class="app-page-subtitle">
-                Uygulama genel özelliklerini, finans durumunu, veri yedeklerini ve toplu işlemlerinizi buradan yönetebilirsiniz.
+                Uygulama genel özelliklerini, öğretmen profilinizi, kaynak kitapları, veri yedeklerini ve sistem ayarlarınızı buradan yönetebilirsiniz.
             </p></div></header>
 
             <!-- Öğretmen Bilgi Kartı & Branş Seçimi -->
             <div class="app-panel p-5 flex flex-col gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xl font-black">
+                <div class="border-b border-gray-150/40 dark:border-gray-800 pb-3">
+                    <h3 class="font-black text-gray-800 dark:text-white text-base flex items-center gap-2">
+                        <i class="fas fa-user-tie text-indigo-600"></i> Öğretmen ve Kurum Bilgileri
+                    </h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Öğrenci karnelerinde ve sistem çıktılarında yer alacak profil bilgileriniz.</p>
+                </div>
+
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xl font-black shrink-0 mt-1">
                         <i class="fas fa-chalkboard-teacher"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <input type="text" id="teacherNameInput" value="${escapeHtml(store.teacherName || '')}" maxlength="80" placeholder="Adınız Soyadınız" class="bg-transparent border-b border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-indigo-500 focus:outline-none text-base font-bold text-gray-800 dark:text-gray-150 py-0.5 px-1 rounded transition w-full">
-                        <input type="text" id="teacherSchoolInput" value="${escapeHtml(store.teacherSchool || '')}" maxlength="120" placeholder="Çalıştığınız Okul / Kurum" class="bg-transparent border-b border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-indigo-500 focus:outline-none text-xs font-semibold text-gray-500 dark:text-gray-400 py-0.5 px-1 rounded transition w-full mt-0.5">
-                        <div class="text-xs text-gray-500 dark:text-gray-400 font-semibold flex items-center gap-1.5 mt-1 px-1">
+                        <label for="teacherNameInput" class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Öğretmen Adı Soyadı</label>
+                        <input type="text" id="teacherNameInput" value="${escapeHtml(store.teacherName || '')}" maxlength="80" placeholder="Adınız Soyadınız" class="bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none text-base font-bold text-gray-800 dark:text-gray-150 py-1 px-1 rounded transition w-full">
+
+                        <label for="teacherSchoolInput" class="block text-xs font-bold text-gray-600 dark:text-gray-400 mt-3 mb-1">Çalıştığınız Okul / Kurum</label>
+                        <input type="text" id="teacherSchoolInput" value="${escapeHtml(store.teacherSchool || '')}" maxlength="120" placeholder="Çalıştığınız Okul / Kurum" class="bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none text-xs font-semibold text-gray-700 dark:text-gray-300 py-1 px-1 rounded transition w-full">
+
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-semibold flex items-center gap-1.5 mt-2.5 px-1">
                             <i class="fas fa-envelope"></i> ${window.auth && window.auth.currentUser ? window.auth.currentUser.email : 'Yerel Çevrimdışı Hesap'}
                         </div>
                     </div>
@@ -2245,7 +2256,7 @@ export function renderGenelIslemler() {
 
                 <!-- Branş / Ders Seçimi -->
                 <div class="pt-3 border-t border-indigo-150/10 dark:border-indigo-900/25">
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2.5 uppercase tracking-wider">📚 Vereceğiniz Dersler (Çoklu Seçim)</label>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2.5 uppercase tracking-wider">📚 Verdiğiniz Dersler / Branşlar (Çoklu Seçim)</label>
                     <div class="flex flex-wrap gap-2">
                         <label class="flex items-center gap-1.5 cursor-pointer bg-white dark:bg-gray-850 px-3 py-1.5 rounded-xl shadow-sm border border-gray-150/30 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-900 transition">
                             <input type="checkbox" name="settingsTeacherBranch" id="settingsBranchTur" value="Türkçe" ${store.teacherBranches.includes("Türkçe") ? "checked" : ""} class="rounded text-indigo-650 focus:ring-indigo-500 w-4 h-4">
@@ -2257,7 +2268,7 @@ export function renderGenelIslemler() {
                         </label>
                         <label class="flex items-center gap-1.5 cursor-pointer bg-white dark:bg-gray-850 px-3 py-1.5 rounded-xl shadow-sm border border-gray-150/30 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-900 transition">
                             <input type="checkbox" name="settingsTeacherBranch" id="settingsBranchScience" value="Fen Bilimleri" ${store.teacherBranches.includes("Fen Bilimleri") ? "checked" : ""} class="rounded text-indigo-650 focus:ring-indigo-500 w-4 h-4">
-                            <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Fen</span>
+                            <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Fen Bilimleri</span>
                         </label>
                         <label class="flex items-center gap-1.5 cursor-pointer bg-white dark:bg-gray-850 px-3 py-1.5 rounded-xl shadow-sm border border-gray-150/30 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-900 transition">
                             <input type="checkbox" name="settingsTeacherBranch" id="settingsBranchSoc" value="Sosyal Bilgiler" ${store.teacherBranches.includes("Sosyal Bilgiler") ? "checked" : ""} class="rounded text-indigo-650 focus:ring-indigo-500 w-4 h-4">
