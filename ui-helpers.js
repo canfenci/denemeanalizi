@@ -176,6 +176,17 @@ export function shouldRenderInitialView(options = {}) {
     return true;
 }
 
+export function isDynamicContentEmptyOrLoading(content = (typeof document !== 'undefined' ? document.getElementById('dynamic-content') : null)) {
+    if (!content) return true;
+    const html = content.innerHTML ? content.innerHTML.trim() : '';
+    if (!html) return true;
+    if (typeof content.querySelector === 'function') {
+        if (content.querySelector('#app-loading-state, [data-app-loading-state="true"]')) return true;
+    }
+    if (html.includes('Verileriniz hazırlanıyor')) return true;
+    return false;
+}
+
 // Global PWA Listeners and window bindings
 if (typeof window !== 'undefined') {
     window.addEventListener('online', updateOnlineStatus);
@@ -205,4 +216,5 @@ if (typeof window !== 'undefined') {
     window.isStartupNavigationElement = isStartupNavigationElement;
     window.markStartupUserNavigation = markStartupUserNavigation;
     window.resetStartupUserNavigation = resetStartupUserNavigation;
+    window.isDynamicContentEmptyOrLoading = isDynamicContentEmptyOrLoading;
 }

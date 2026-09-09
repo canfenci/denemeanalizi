@@ -1241,6 +1241,12 @@
                 window.showLocalDevelopmentBanner();
             }
             if (window.initializeLessonReminders) window.initializeLessonReminders();
+
+            // Prevent blank white screen while waiting for async auth state resolution
+            const startupContent = document.getElementById('dynamic-content');
+            if (startupContent && (!startupContent.innerHTML || startupContent.innerHTML.trim() === '')) {
+                if (window.renderAppLoadingState) window.renderAppLoadingState();
+            }
             
             const urlParams = new URLSearchParams(window.location.search);
             const action = urlParams.get('action');
@@ -1264,24 +1270,61 @@
                     window.auth.onAuthStateChanged(user => {
                         if (user) {
                             if (window.restoreNavigationLayout) window.restoreNavigationLayout();
-                            if (window.renderAppLoadingState) window.renderAppLoadingState();
+                            const currentDynamicContent = document.getElementById("dynamic-content");
+                            const isCurrentBlankOrLoading = window.isDynamicContentEmptyOrLoading
+                                ? window.isDynamicContentEmptyOrLoading(currentDynamicContent)
+                                : (!currentDynamicContent || !currentDynamicContent.innerHTML || currentDynamicContent.innerHTML.trim() === '');
+                            if (!userHasNavigatedDuringStartup || isCurrentBlankOrLoading) {
+                                if (window.renderAppLoadingState) window.renderAppLoadingState();
+                            }
 
                             const renderInitialView = () => {
+                                const content = document.getElementById("dynamic-content");
+                                const isBlankOrLoading = window.isDynamicContentEmptyOrLoading
+                                    ? window.isDynamicContentEmptyOrLoading(content)
+                                    : (!content || !content.innerHTML || content.innerHTML.trim() === '' ||
+                                       Boolean(content.querySelector && (content.querySelector('#app-loading-state') || content.querySelector('[data-app-loading-state="true"]'))) ||
+                                       (content.innerHTML && content.innerHTML.includes('Verileriniz hazırlanıyor')));
+
+                                if (userHasNavigatedDuringStartup) {
+                                    if (!isBlankOrLoading) {
+                                        initialViewRendered = true;
+                                        content?.removeAttribute("aria-busy");
+                                        return;
+                                    }
+                                    console.warn('Startup recovery: User navigated but content was empty or loading skeleton, engaging fallback.');
+                                }
+
                                 const shouldRender = window.shouldRenderInitialView
                                     ? window.shouldRenderInitialView({ initialViewRendered, userHasNavigatedDuringStartup })
                                     : (!initialViewRendered && !userHasNavigatedDuringStartup);
 
-                                if (!shouldRender) return;
+                                if (!shouldRender && !isBlankOrLoading) return;
                                 initialViewRendered = true;
 
-                                document.getElementById("dynamic-content")?.removeAttribute("aria-busy");
-                                if (window.ensureTeacherProfile && !window.ensureTeacherProfile()) return;
+                                content?.removeAttribute("aria-busy");
+                                try {
+                                    if (window.ensureTeacherProfile && !window.ensureTeacherProfile()) return;
 
-                                const page = urlParams.get('page');
-                                if (page === 'odevler' && window.renderOdevTakibi) {
-                                    window.renderOdevTakibi();
-                                } else if (window.renderReminderHome) {
-                                    window.renderReminderHome();
+                                    const page = urlParams.get('page');
+                                    if (page === 'odevler' && window.renderOdevTakibi) {
+                                        window.renderOdevTakibi();
+                                    } else if (window.renderReminderHome) {
+                                        window.renderReminderHome();
+                                    } else if (window.renderHomeScreen) {
+                                        window.renderHomeScreen();
+                                    }
+                                } catch (renderErr) {
+                                    console.error('Initial view render failed:', renderErr);
+                                    if (content && (!content.innerHTML || content.innerHTML.trim() === '')) {
+                                        content.innerHTML = `
+                                            <div class="cf-panel-soft text-center py-12 max-w-lg mx-auto mt-8">
+                                                <i class="fas fa-exclamation-triangle text-amber-500 text-3xl mb-3"></i>
+                                                <h3 class="text-base font-bold text-gray-900 dark:text-white">Çalışma Alanı Yüklenemedi</h3>
+                                                <p class="text-xs text-gray-500 mt-1 mb-4">Bir yükleme sorunu oluştu. Lütfen menüden bir sekmeye tıklayın veya sayfayı yenileyin.</p>
+                                                <button onclick="window.renderHomeScreen ? window.renderHomeScreen() : window.location.reload()" class="cf-btn-primary py-2 px-4 text-xs font-bold">Öğrencilere Git</button>
+                                            </div>`;
+                                    }
                                 }
                             };
 
@@ -1321,18 +1364,42 @@
             bootApp();
         }
 
-        // Global safety fallback: If initial view has not rendered within 3 seconds and user hasn't navigated, render fallback view
+        // Global safety fallback: If dynamic-content is empty or loading skeleton after 3 seconds, render fallback view
         setTimeout(() => {
+            const content = document.getElementById('dynamic-content');
+            const isBlankOrLoading = window.isDynamicContentEmptyOrLoading
+                ? window.isDynamicContentEmptyOrLoading(content)
+                : (!content || !content.innerHTML || content.innerHTML.trim() === '' ||
+                   Boolean(content.querySelector && (content.querySelector('#app-loading-state') || content.querySelector('[data-app-loading-state="true"]'))) ||
+                   (content.innerHTML && content.innerHTML.includes('Verileriniz hazırlanıyor')));
+
+            if (userHasNavigatedDuringStartup) {
+                if (!isBlankOrLoading) {
+                    content?.removeAttribute('aria-busy');
+                    return;
+                }
+                console.warn('Startup safety timer: user navigated but content was empty or loading skeleton, recovering.');
+            }
+
             const shouldFallback = window.shouldRenderInitialView
                 ? window.shouldRenderInitialView({ initialViewRendered, userHasNavigatedDuringStartup })
                 : (!initialViewRendered && !userHasNavigatedDuringStartup);
 
-            if (shouldFallback) {
-                const content = document.getElementById('dynamic-content');
-                if (!content || !content.innerHTML || content.innerHTML.trim() === '' || content.hasAttribute('aria-busy')) {
-                    console.warn('Startup safety timer triggered: dynamic-content was empty or busy, rendering default view.');
-                    if (window.ensureTeacherProfile && !window.ensureTeacherProfile()) return;
-                    if (window.renderReminderHome) window.renderReminderHome();
+            if (shouldFallback || isBlankOrLoading) {
+                if (isBlankOrLoading) {
+                    console.warn('Startup safety timer triggered: dynamic-content was empty or loading skeleton, rendering default view.');
+                    initialViewRendered = true;
+                    content?.removeAttribute('aria-busy');
+                    try {
+                        if (window.ensureTeacherProfile && !window.ensureTeacherProfile()) return;
+                        if (window.renderReminderHome) {
+                            window.renderReminderHome();
+                        } else if (window.renderHomeScreen) {
+                            window.renderHomeScreen();
+                        }
+                    } catch (fallbackErr) {
+                        console.error('Startup safety timer fallback failed:', fallbackErr);
+                    }
                 }
             }
         }, 3000);

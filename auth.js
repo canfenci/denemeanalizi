@@ -386,7 +386,7 @@ export function renderAppLoadingState() {
     if (!content) return;
     content.setAttribute('aria-busy', 'true');
     content.innerHTML = `
-        <div class="min-h-[55vh] flex items-center justify-center px-4">
+        <div id="app-loading-state" data-app-loading-state="true" class="min-h-[55vh] flex items-center justify-center px-4">
             <div class="app-panel w-full max-w-md p-7 text-center">
                 <div class="mx-auto mb-4 h-11 w-11 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" aria-hidden="true"></div>
                 <h1 class="text-lg font-black text-gray-900 dark:text-gray-100">Verileriniz hazırlanıyor</h1>

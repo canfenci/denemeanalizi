@@ -59,6 +59,8 @@ export function renderHomeScreen(view = 'students') {
     store.currentPage = "home";
     if (window.currentPage) window.currentPage = "home";
     updateMobileNavActive('mobile-nav-home');
+    const dynamicContent = document.getElementById("dynamic-content");
+    if (dynamicContent) dynamicContent.removeAttribute("aria-busy");
     const students = loadStudentsData();
     let filtered = students;
     if (store.activeFilter !== "all") {
@@ -2461,6 +2463,8 @@ export function renderReminderHome() {
     store.currentPage = "reminderHome";
     if (window.currentPage) window.currentPage = "reminderHome";
     updateMobileNavActive('mobile-nav-reminders');
+    const dynamicContent = document.getElementById("dynamic-content");
+    if (dynamicContent) dynamicContent.removeAttribute("aria-busy");
 
     const students = loadStudentsData();
     const metrics = getDashboardMetrics();
@@ -2687,6 +2691,8 @@ export function renderGenelIslemler() {
     store.currentPage = "general";
     if (window.currentPage) window.currentPage = "general";
     updateMobileNavActive('topbar-nav-general');
+    const dynamicContent = document.getElementById("dynamic-content");
+    if (dynamicContent) dynamicContent.removeAttribute("aria-busy");
     
     const themeText = store.darkMode ? 'Açık Mod' : 'Koyu Mod';
     const themeIcon = store.darkMode ? 'fa-sun' : 'fa-moon';
