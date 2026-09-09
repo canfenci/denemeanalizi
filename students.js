@@ -35,7 +35,26 @@ export function onTargetSchoolChanged(selectEl, netInputId, customAreaId) {
     }
 }
 
-export function renderHomeScreen() {
+export function renderStudentsTabBarHtml(activeTab = 'students') {
+    return `
+        <div class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 mb-4 overflow-x-auto">
+            <button type="button" onclick="renderHomeScreen('students')" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${activeTab === 'students' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <i class="fas fa-users"></i> Öğrenciler
+            </button>
+            <button type="button" onclick="renderHomeScreen('groups')" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${activeTab === 'groups' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <i class="fas fa-users-cog"></i> Gruplar
+            </button>
+        </div>
+    `;
+}
+
+export function renderHomeScreen(view = 'students') {
+    if (view === 'groups') {
+        if (typeof window.renderGroupsPage === 'function') {
+            window.renderGroupsPage();
+            return;
+        }
+    }
     store.currentPage = "home";
     if (window.currentPage) window.currentPage = "home";
     updateMobileNavActive('mobile-nav-home');
@@ -106,7 +125,7 @@ export function renderHomeScreen() {
     `;
     
     document.getElementById("dynamic-content").innerHTML = `
-        <div class="app-page"><header class="app-page-header"><div><h2 class="app-page-title">Öğrenciler</h2><p class="app-page-subtitle">${sorted.length} öğrenci · ${store.activeFilter === 'all' ? 'Tüm sınıflar' : store.activeFilter + '. sınıf'}</p></div></header>${shortcutsHtml}<div class="app-panel p-4"><p class="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Sınıf</p>${filterHtml}<p class="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Sıralama</p>${sortHtml}</div><div class="grid md:grid-cols-2 gap-4">${studentsHtml}</div></div>
+        <div class="app-page"><header class="app-page-header"><div><h2 class="app-page-title">Öğrenciler</h2><p class="app-page-subtitle">${sorted.length} öğrenci · ${store.activeFilter === 'all' ? 'Tüm sınıflar' : store.activeFilter + '. sınıf'}</p></div></header>${renderStudentsTabBarHtml('students')}${shortcutsHtml}<div class="app-panel p-4"><p class="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Sınıf</p>${filterHtml}<p class="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Sıralama</p>${sortHtml}</div><div class="grid md:grid-cols-2 gap-4">${studentsHtml}</div></div>
     `;
 }
 
@@ -2159,7 +2178,7 @@ export function renderReminderHome() {
 export function renderGenelIslemler() {
     store.currentPage = "general";
     if (window.currentPage) window.currentPage = "general";
-    updateMobileNavActive('mobile-nav-general');
+    updateMobileNavActive('topbar-nav-general');
     
     const themeText = store.darkMode ? 'Açık Mod' : 'Koyu Mod';
     const themeIcon = store.darkMode ? 'fa-sun' : 'fa-moon';
@@ -2284,27 +2303,6 @@ export function renderGenelIslemler() {
                     <div>
                         <div class="text-sm font-bold">Görünüm Teması</div>
                         <div class="text-sm text-gray-450">${themeText}'a Geç</div>
-                    </div>
-                </button>
-                <button onclick="renderFinanceReport()" class="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition font-medium text-left">
-                    <i class="fas fa-wallet text-indigo-500 text-xl w-8 text-center"></i>
-                    <div>
-                        <div class="text-sm font-bold">Finans / Ödeme Raporu</div>
-                        <div class="text-sm text-gray-450">Genel Muhasebe Takibi</div>
-                    </div>
-                </button>
-                <button onclick="showDenemeAtaModal()" class="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition font-medium text-left">
-                    <i class="fas fa-copy text-indigo-500 text-xl w-8 text-center"></i>
-                    <div>
-                        <div class="text-sm font-bold">Toplu Deneme Ata</div>
-                        <div class="text-sm text-gray-450">Çoklu Öğrenci Seçimi</div>
-                    </div>
-                </button>
-                <button onclick="renderGroupsPage()" class="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition font-medium text-left">
-                    <i class="fas fa-users-cog text-indigo-500 text-xl w-8 text-center"></i>
-                    <div>
-                        <div class="text-sm font-bold">Sınıf & Grup Yönetimi</div>
-                        <div class="text-sm text-gray-450">Gruplar, Ödevler ve Liderlik</div>
                     </div>
                 </button>
                 ${logoutHtml}
@@ -2529,6 +2527,7 @@ window.openCockpitLesson = (studentId, focusNote = false) => {
     }
 };
 window.renderGenelIslemler = renderGenelIslemler;
+window.renderStudentsTabBarHtml = renderStudentsTabBarHtml;
 window.startLocalDataRecovery = startLocalDataRecovery;
 window.renderReminderHome = renderReminderHome;
 window.filterDashboardStudents = filterDashboardStudents;

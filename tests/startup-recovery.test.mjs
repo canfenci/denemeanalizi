@@ -80,11 +80,10 @@ test('HOTFIX-01.4 Scenario G: HTML source audit - data-app-nav="true" only on ro
     // Confirmed route buttons have data-app-nav="true"
     assert.match(index, /id="sidebar-nav-reminders"\s+data-app-nav="true"/);
     assert.match(index, /id="sidebar-nav-home"\s+data-app-nav="true"/);
-    assert.match(index, /id="sidebar-nav-guidance"\s+data-app-nav="true"/);
-    assert.match(index, /id="sidebar-nav-schedule"\s+data-app-nav="true"/);
-    assert.match(index, /id="sidebar-nav-homework"\s+data-app-nav="true"/);
     assert.match(index, /id="sidebar-nav-lessons"\s+data-app-nav="true"/);
-    assert.match(index, /id="sidebar-nav-general"\s+data-app-nav="true"/);
+    assert.match(index, /id="sidebar-nav-homework"\s+data-app-nav="true"/);
+    assert.match(index, /id="sidebar-nav-guidance"\s+data-app-nav="true"/);
+    assert.match(index, /id="topbar-nav-general"\s+data-app-nav="true"/);
 
     // Non-route action buttons do NOT have data-app-nav="true"
     assert.doesNotMatch(index, /onclick="toggleTheme\(\)"\s+data-app-nav="true"/);

@@ -3,6 +3,7 @@
 import { store, loadStudentsData, loadSchedule, saveSchedule, escapeHtml } from './store.js';
 import { updateMobileNavActive } from './auth.js';
 import { buildScheduleConflictMessage, findScheduleConflict } from './schedule-conflicts.js';
+import { renderDerslerTabBarHtml } from './finance.js';
 
 export function getAllSchedulesByStudent(students) {
     return Object.fromEntries(students.map(student => [student.id, loadSchedule(student.id)]));
@@ -15,7 +16,7 @@ function getTurkishTodayName() {
 
 export function renderSchedulePage() {
     store.currentPage = "schedule";
-    updateMobileNavActive('mobile-nav-schedule');
+    updateMobileNavActive('mobile-nav-lessons');
     const students = loadStudentsData();
     if (students.length === 0) { 
         document.getElementById("dynamic-content").innerHTML = `
@@ -26,6 +27,7 @@ export function renderSchedulePage() {
                         <p class="app-page-subtitle">Haftalık ders çizelgesi ve program yoğunluğu.</p>
                     </div>
                 </header>
+                ${renderDerslerTabBarHtml('schedule')}
                 <div class="app-panel p-8 text-center text-gray-500 dark:text-gray-400">
                     <div class="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 text-xl">
                         <i class="fas fa-calendar-times"></i>
@@ -201,6 +203,7 @@ export function renderSchedulePage() {
                     <p class="app-page-subtitle">Haftalık ders çizelgesi ve program yoğunluğu</p>
                 </div>
             </header>
+            ${renderDerslerTabBarHtml('schedule')}
 
             <!-- Headline Metrics Summary -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5">

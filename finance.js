@@ -6,8 +6,40 @@ import { ATTENDANCE_LABELS, calculateLessonFinance, normalizeLessonStatus, updat
 import { formatLessonDateForDisplay, formatLessonDateTyping, parseLessonDateInput } from './lesson-date-utils.js';
 import { readResourceSelection, resourceOptionsHtml, toggleManualResource } from './resource-books.js';
 
+export function renderDerslerTabBarHtml(activeTab = 'lessons') {
+    return `
+        <div class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800 mb-6 overflow-x-auto">
+            <button type="button" onclick="renderDerslerPage('schedule')" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${activeTab === 'schedule' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <i class="fas fa-calendar-alt"></i> Haftalık Program
+            </button>
+            <button type="button" onclick="renderDerslerPage('lessons')" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${activeTab === 'lessons' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <i class="fas fa-book-open"></i> Ders Kayıtları
+            </button>
+            <button type="button" onclick="renderDerslerPage('finance')" class="py-2.5 px-4 text-sm font-black border-b-2 flex items-center gap-2 transition min-h-[44px] whitespace-nowrap ${activeTab === 'finance' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}">
+                <i class="fas fa-wallet"></i> Finans & Ödemeler
+            </button>
+        </div>
+    `;
+}
+
+export function renderDerslerPage(tab = 'schedule') {
+    store.currentPage = "dersler";
+    window._activeDerslerTab = tab;
+    updateMobileNavActive('mobile-nav-lessons');
+    if (tab === 'schedule') {
+        if (typeof window.renderSchedulePage === 'function') {
+            window.renderSchedulePage();
+        }
+    } else if (tab === 'finance') {
+        renderFinanceReport();
+    } else {
+        renderDersKayitlari();
+    }
+}
+
 export function renderFinanceReport() {
     store.currentPage = "finance";
+    updateMobileNavActive('mobile-nav-lessons');
     const students = loadStudentsData();
     
     let totalRevenueCollected = 0;
@@ -86,55 +118,61 @@ export function renderFinanceReport() {
     }
     
     const html = `
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 border border-gray-100/20 dark:border-gray-700/50">
-            <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+        <div class="app-page">
+            <header class="app-page-header">
                 <div>
-                    <h2 class="text-2xl font-black text-gray-800 dark:text-white border-b-2 border-primary/20 pb-2 mb-1">
-                        <i class="fas fa-wallet text-amber-500"></i> Finans / Ödeme Raporu
-                    </h2>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Tüm öğrencilerin ders ücreti ve ödeme durumlarının toplu raporu.</p>
+                    <h2 class="app-page-title">Dersler</h2>
+                    <p class="app-page-subtitle">Haftalık ders çizelgesi, ders geçmişi ve finansal takip.</p>
                 </div>
-                <button onclick="renderGenelIslemler()" class="bg-gray-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-600 transition flex items-center gap-1 min-h-[44px]">
-                    <i class="fas fa-arrow-left"></i> Geri
-                </button>
-            </div>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="cf-card p-4 text-center">
-                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Aktif Ücretli Öğrenci</span>
-                    <div class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">${activeFeeStudentsCount} / ${students.length}</div>
+            </header>
+            ${renderDerslerTabBarHtml('finance')}
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 border border-gray-100/20 dark:border-gray-700/50">
+                <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+                    <div>
+                        <h3 class="text-xl font-black text-gray-800 dark:text-white border-b-2 border-primary/20 pb-2 mb-1">
+                            <i class="fas fa-wallet text-amber-500"></i> Finans / Ödeme Raporu
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Tüm öğrencilerin ders ücreti ve ödeme durumlarının toplu raporu.</p>
+                    </div>
                 </div>
-                <div class="cf-card p-4 text-center">
-                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Yapılan Toplam Ders</span>
-                    <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">${totalCompletedLessons + totalPendingLessons} Saat</div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="cf-card p-4 text-center">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Aktif Ücretli Öğrenci</span>
+                        <div class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">${activeFeeStudentsCount} / ${students.length}</div>
+                    </div>
+                    <div class="cf-card p-4 text-center">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Yapılan Toplam Ders</span>
+                        <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">${totalCompletedLessons + totalPendingLessons} Saat</div>
+                    </div>
+                    <div class="cf-card p-4 text-center">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Tahsil Edilen Toplam Tutar</span>
+                        <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${totalRevenueCollected} TL</div>
+                    </div>
+                    <div class="cf-card p-4 text-center">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Ödeme Bekleyen Tutar</span>
+                        <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">${totalPendingRevenue} TL</div>
+                    </div>
                 </div>
-                <div class="cf-card p-4 text-center">
-                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Tahsil Edilen Toplam Tutar</span>
-                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${totalRevenueCollected} TL</div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                        <thead class="bg-gray-800 dark:bg-gray-900 text-white">
+                            <tr>
+                                <th class="border p-4 text-left text-sm font-bold">Öğrenci</th>
+                                <th class="border p-4 text-left text-sm font-bold">Ders Ücreti</th>
+                                <th class="border p-4 text-left text-sm font-bold">Toplam Ders</th>
+                                <th class="border p-4 text-left text-sm font-bold">Ödenen (Tutar)</th>
+                                <th class="border p-4 text-left text-sm font-bold">Bekleyen (Tutar)</th>
+                                <th class="border p-4 text-left text-sm font-bold">Genel Toplam</th>
+                                <th class="border p-4 text-left text-sm font-bold">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="cf-card p-4 text-center">
-                    <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Ödeme Bekleyen Tutar</span>
-                    <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">${totalPendingRevenue} TL</div>
-                </div>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                    <thead class="bg-gray-800 dark:bg-gray-900 text-white">
-                        <tr>
-                            <th class="border p-4 text-left text-sm font-bold">Öğrenci</th>
-                            <th class="border p-4 text-left text-sm font-bold">Ders Ücreti</th>
-                            <th class="border p-4 text-left text-sm font-bold">Toplam Ders</th>
-                            <th class="border p-4 text-left text-sm font-bold">Ödenen (Tutar)</th>
-                            <th class="border p-4 text-left text-sm font-bold">Bekleyen (Tutar)</th>
-                            <th class="border p-4 text-left text-sm font-bold">Genel Toplam</th>
-                            <th class="border p-4 text-left text-sm font-bold">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rowsHtml}
-                    </tbody>
-                </table>
             </div>
         </div>
     `;
@@ -149,6 +187,8 @@ export function renderDersKayitlari() {
     if (students.length === 0) {
         document.getElementById("dynamic-content").innerHTML = `
             <div class="app-page">
+                <header class="app-page-header"><div><h2 class="app-page-title">Dersler</h2><p class="app-page-subtitle">Haftalık ders çizelgesi, ders geçmişi ve finansal takip.</p></div></header>
+                ${renderDerslerTabBarHtml('lessons')}
                 <div class="app-panel cf-empty-state">
                     <div class="cf-empty-icon"><i class="fas fa-book-open"></i></div>
                     <h3 class="cf-empty-title">Henüz Öğrenci Kaydı Bulunmuyor</h3>
@@ -179,7 +219,7 @@ export function renderDersKayitlari() {
     cardsHtml += '</div>';
     
     document.getElementById("dynamic-content").innerHTML = `
-        <div class="app-page"><header class="app-page-header"><div><h2 class="app-page-title">Ders Kayıtları</h2><p class="app-page-subtitle">Ders geçmişi, katılım ve ücret durumlarını tek yerden yönetin.</p></div></header>${cardsHtml}</div>
+        <div class="app-page"><header class="app-page-header"><div><h2 class="app-page-title">Dersler</h2><p class="app-page-subtitle">Haftalık ders çizelgesi, ders geçmişi ve finansal takip.</p></div></header>${renderDerslerTabBarHtml('lessons')}${cardsHtml}</div>
     `;
 }
 
@@ -743,6 +783,8 @@ export function openHomeworkForLesson(studentId, lessonId) {
 }
 
 // Bind to window for global accessibility
+window.renderDerslerPage = renderDerslerPage;
+window.renderDerslerTabBarHtml = renderDerslerTabBarHtml;
 window.renderFinanceReport = renderFinanceReport;
 window.renderDersKayitlari = renderDersKayitlari;
 window.renderDersDetay = renderDersDetay;

@@ -1085,16 +1085,11 @@
             </div>
             
             <nav class="flex flex-col gap-1 flex-1 overflow-y-auto" aria-label="Sayfa Navigasyonu">
-                <button id="sidebar-nav-reminders" data-app-nav="true" onclick="renderReminderHome()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm active"><i class="fas fa-home sidebar-icon text-lg"></i> <span>Ana Sayfa</span></button>
+                <button id="sidebar-nav-reminders" data-app-nav="true" onclick="renderReminderHome()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm active"><i class="fas fa-home sidebar-icon text-lg"></i> <span>Bugün</span></button>
                 <button id="sidebar-nav-home" data-app-nav="true" onclick="renderHomeScreen()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-users sidebar-icon text-lg"></i> <span>Öğrenciler</span></button>
+                <button id="sidebar-nav-lessons" data-app-nav="true" onclick="renderDerslerPage()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-calendar-alt sidebar-icon text-lg"></i> <span>Dersler</span></button>
+                <button id="sidebar-nav-homework" data-app-nav="true" onclick="renderOdevTakibi()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-tasks sidebar-icon text-lg"></i> <span>Ödevler</span></button>
                 <button id="sidebar-nav-guidance" data-app-nav="true" onclick="renderGuidancePage()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-compass sidebar-icon text-lg"></i> <span>Rehberlik</span></button>
-                <button id="sidebar-nav-groups" data-app-nav="true" onclick="renderGroupsPage()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-users-cog sidebar-icon text-lg"></i> <span>Sınıf & Gruplar</span></button>
-                <button id="sidebar-nav-schedule" data-app-nav="true" onclick="renderSchedulePage()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-calendar-alt sidebar-icon text-lg"></i> <span>Ders Programı</span></button>
-                <button id="sidebar-nav-homework" data-app-nav="true" onclick="renderOdevTakibi()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-tasks sidebar-icon text-lg"></i> <span>Ödev Takibi</span></button>
-                <button id="sidebar-nav-lessons" data-app-nav="true" onclick="renderDersKayitlari()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-book-open sidebar-icon text-lg"></i> <span>Ders Kayıtları</span></button>
-                <button onclick="showDenemeAtaModal()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-copy sidebar-icon text-lg"></i> <span>Deneme Ata</span></button>
-                <button onclick="toggleTheme()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-moon sidebar-icon text-lg"></i> <span id="themeBtnText">Koyu Mod</span></button>
-                <button id="sidebar-nav-general" data-app-nav="true" onclick="renderGenelIslemler()" class="sidebar-btn cf-nav-item gap-3 py-2.5 px-3 text-sm"><i class="fas fa-cog sidebar-icon text-lg"></i> <span>Ayarlar</span></button>
             </nav>
 
             <div class="cf-sidebar-footer text-xs text-blue-200/50 mt-auto pt-3 border-t border-white/10 text-center flex flex-col gap-1">
@@ -1104,34 +1099,26 @@
         </div>
 
         <!-- Mobile Bottom Navigation Bar -->
-        <div class="flex md:hidden items-center justify-around fixed bottom-0 left-0 right-0 z-40 shadow-lg pb-safe mobile-nav-bar">
-            <button onclick="renderReminderHome()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-blue-600 dark:text-blue-400 active" id="mobile-nav-reminders">
+        <div class="flex md:hidden items-center justify-around fixed bottom-0 left-0 right-0 z-40 shadow-lg pb-safe mobile-nav-bar" aria-label="Mobil Alt Menü">
+            <button onclick="renderReminderHome()" data-app-nav="true" class="flex flex-col items-center justify-center min-h-[48px] py-1.5 flex-1 gap-0.5 text-xs font-semibold mobile-nav-btn text-blue-600 dark:text-blue-400 active" id="mobile-nav-reminders">
                 <i class="fas fa-home text-xl"></i>
-                <span>Ana</span>
+                <span>Bugün</span>
             </button>
-            <button onclick="renderHomeScreen()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-home">
+            <button onclick="renderHomeScreen()" data-app-nav="true" class="flex flex-col items-center justify-center min-h-[48px] py-1.5 flex-1 gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-home">
                 <i class="fas fa-users text-xl"></i>
                 <span>Öğrenciler</span>
             </button>
-            <button onclick="renderGuidancePage()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-guidance">
-                <i class="fas fa-compass text-xl"></i>
-                <span>Rehberlik</span>
-            </button>
-            <button onclick="renderSchedulePage()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-schedule">
+            <button onclick="renderDerslerPage()" data-app-nav="true" class="flex flex-col items-center justify-center min-h-[48px] py-1.5 flex-1 gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-lessons">
                 <i class="fas fa-calendar-alt text-xl"></i>
-                <span>Program</span>
+                <span>Dersler</span>
             </button>
-            <button onclick="renderOdevTakibi()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-homework">
+            <button onclick="renderOdevTakibi()" data-app-nav="true" class="flex flex-col items-center justify-center min-h-[48px] py-1.5 flex-1 gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-homework">
                 <i class="fas fa-tasks text-xl"></i>
                 <span>Ödevler</span>
             </button>
-            <button onclick="renderDersKayitlari()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-lessons">
-                <i class="fas fa-book-open text-xl"></i>
-                <span>Kayıtlar</span>
-            </button>
-            <button onclick="renderGenelIslemler()" data-app-nav="true" class="flex flex-col items-center gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-general">
-                <i class="fas fa-cog text-xl"></i>
-                <span>Ayarlar</span>
+            <button onclick="renderGuidancePage()" data-app-nav="true" class="flex flex-col items-center justify-center min-h-[48px] py-1.5 flex-1 gap-0.5 text-xs font-semibold mobile-nav-btn text-gray-500" id="mobile-nav-guidance">
+                <i class="fas fa-compass text-xl"></i>
+                <span>Rehberlik</span>
             </button>
         </div>
 
@@ -1155,7 +1142,10 @@
                 </div>
 
                 <div class="cf-topbar-actions flex items-center gap-2">
-                    <button onclick="toggleTheme()" class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition border border-white/15 min-h-[36px]" aria-label="Temayı Değiştir" title="Açık/Koyu Mod">
+                    <button id="topbar-nav-general" data-app-nav="true" onclick="renderGenelIslemler()" class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition border border-white/15 min-h-[36px]" aria-label="Ayarlar" title="Ayarlar ve Sistem">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button id="themeToggleBtn" onclick="toggleTheme()" class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition border border-white/15 min-h-[36px]" aria-label="Temayı Değiştir" title="Açık/Koyu Mod">
                         <i class="fas fa-moon"></i>
                     </button>
                 </div>

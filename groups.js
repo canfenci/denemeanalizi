@@ -6,6 +6,7 @@ import { store, loadGroupsData, saveGroupsData, deleteGroupData, loadStudentsDat
 import { showSyncStatus } from './ui-helpers.js';
 import { updateMobileNavActive } from './auth.js';
 import { getOrtalamaNet, lgsPuanHesapla } from './exams.js';
+import { renderStudentsTabBarHtml } from './students.js';
 
 export function renderGroupsPage() {
     try {
@@ -13,10 +14,10 @@ export function renderGroupsPage() {
         store.currentPage = "groups";
         if (window.currentPage) window.currentPage = "groups";
         
-        // Set navbar title and highlight the active nav button
+        // Set navbar title and highlight the active nav button under Students
         const titleEl = document.getElementById("appBarTitle");
         if (titleEl) titleEl.innerText = "Sınıf & Gruplar";
-        updateMobileNavActive("sidebar-nav-groups");
+        updateMobileNavActive("mobile-nav-home");
 
         const groups = loadGroupsData() || [];
         const students = loadStudentsData() || [];
@@ -127,7 +128,7 @@ export function renderGroupsPage() {
                         </button>
                     </div>
                 </header>
-
+                ${renderStudentsTabBarHtml('groups')}
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     ${groupsHtml}
                 </div>

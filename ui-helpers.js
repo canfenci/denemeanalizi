@@ -159,7 +159,7 @@ export function resetStartupUserNavigation() {
 
 export function isStartupNavigationElement(element) {
     if (!element || typeof element.closest !== 'function') return false;
-    return Boolean(element.closest('[data-app-nav="true"], #sidebar-nav-reminders, #sidebar-nav-home, #sidebar-nav-guidance, #sidebar-nav-groups, #sidebar-nav-schedule, #sidebar-nav-homework, #sidebar-nav-lessons, #sidebar-nav-general, #mobile-nav-reminders, #mobile-nav-home, #mobile-nav-guidance, #mobile-nav-schedule, #mobile-nav-homework, #mobile-nav-lessons, #mobile-nav-general'));
+    return Boolean(element.closest('[data-app-nav="true"], #sidebar-nav-reminders, #sidebar-nav-home, #sidebar-nav-guidance, #sidebar-nav-groups, #sidebar-nav-schedule, #sidebar-nav-homework, #sidebar-nav-lessons, #sidebar-nav-general, #topbar-nav-general, #mobile-nav-reminders, #mobile-nav-home, #mobile-nav-guidance, #mobile-nav-schedule, #mobile-nav-homework, #mobile-nav-lessons, #mobile-nav-general'));
 }
 
 export function shouldRenderInitialView(options = {}) {

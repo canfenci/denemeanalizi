@@ -396,23 +396,44 @@ export function renderAppLoadingState() {
 }
 
 export function updateMobileNavActive(activeId) {
-    // 1. Update mobile bottom navigation buttons
+    // 1. Normalize IDs and handle legacy routing aliases
+    let mobileId = null;
+    let sidebarId = null;
+    if (activeId) {
+        let normalized = activeId;
+        if (normalized === 'mobile-nav-schedule' || normalized === 'sidebar-nav-schedule') normalized = 'mobile-nav-lessons';
+        if (normalized === 'mobile-nav-groups' || normalized === 'sidebar-nav-groups') normalized = 'mobile-nav-home';
+
+        if (normalized.startsWith('mobile-nav-')) {
+            mobileId = normalized;
+            sidebarId = normalized.replace('mobile-nav-', 'sidebar-nav-');
+        } else if (normalized.startsWith('sidebar-nav-')) {
+            sidebarId = normalized;
+            mobileId = normalized.replace('sidebar-nav-', 'mobile-nav-');
+        } else {
+            mobileId = normalized;
+            sidebarId = normalized;
+        }
+    }
+
+    // 2. Update mobile bottom navigation buttons
     document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
         btn.classList.remove('text-blue-600', 'dark:text-blue-400', 'active');
         btn.classList.add('text-gray-500');
     });
-    const activeBtn = document.getElementById(activeId);
-    if (activeBtn) {
-        activeBtn.classList.remove('text-gray-500');
-        activeBtn.classList.add('text-blue-600', 'dark:text-blue-400', 'active');
+    if (mobileId) {
+        const activeBtn = document.getElementById(mobileId);
+        if (activeBtn) {
+            activeBtn.classList.remove('text-gray-500');
+            activeBtn.classList.add('text-blue-600', 'dark:text-blue-400', 'active');
+        }
     }
 
-    // 2. Update desktop sidebar buttons
+    // 3. Update desktop sidebar buttons
     document.querySelectorAll('.sidebar-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    if (activeId) {
-        const sidebarId = activeId.replace('mobile-nav-', 'sidebar-nav-');
+    if (sidebarId) {
         const activeSidebarBtn = document.getElementById(sidebarId);
         if (activeSidebarBtn) {
             activeSidebarBtn.classList.add('active');
