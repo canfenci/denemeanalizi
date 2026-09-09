@@ -49,6 +49,46 @@ export function renderStudentsTabBarHtml(activeTab = 'students') {
     `;
 }
 
+export function getGradeAccentClasses(sinif) {
+    switch (String(sinif)) {
+        case '5':
+            return {
+                borderLeft: 'border-l-4 border-l-emerald-500',
+                badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800',
+                dot: 'bg-emerald-500',
+                activeRow: 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 border-emerald-300 dark:border-emerald-700 shadow-xs'
+            };
+        case '6':
+            return {
+                borderLeft: 'border-l-4 border-l-sky-500',
+                badge: 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800',
+                dot: 'bg-sky-500',
+                activeRow: 'bg-sky-50/70 dark:bg-sky-950/30 text-sky-900 dark:text-sky-100 border-sky-300 dark:border-sky-700 shadow-xs'
+            };
+        case '7':
+            return {
+                borderLeft: 'border-l-4 border-l-amber-500',
+                badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800',
+                dot: 'bg-amber-500',
+                activeRow: 'bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-700 shadow-xs'
+            };
+        case '8':
+            return {
+                borderLeft: 'border-l-4 border-l-indigo-500',
+                badge: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800',
+                dot: 'bg-indigo-500',
+                activeRow: 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-100 border-indigo-300 dark:border-indigo-700 shadow-xs'
+            };
+        default:
+            return {
+                borderLeft: 'border-l-4 border-l-blue-500',
+                badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800',
+                dot: 'bg-blue-500',
+                activeRow: 'bg-blue-50/70 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100 border-blue-300 dark:border-blue-700 shadow-xs'
+            };
+    }
+}
+
 export function renderHomeScreen(view = 'students') {
     if (view === 'groups') {
         if (typeof window.renderGroupsPage === 'function') {
@@ -67,68 +107,180 @@ export function renderHomeScreen(view = 'students') {
         filtered = students.filter(s => s.sinif === store.activeFilter);
     }
     const sorted = getSortedStudents(filtered, store.currentSortOrder);
-    
-    const filterHtml = `
-        <div class="flex gap-2 mb-4 flex-wrap">
-            <button onclick="setFilter('all')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === 'all' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Tümü</button>
-            <button onclick="setFilter('5')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '5' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">5. Sınıf</button>
-            <button onclick="setFilter('6')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '6' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">6. Sınıf</button>
-            <button onclick="setFilter('7')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '7' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">7. Sınıf</button>
-            <button onclick="setFilter('8')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.activeFilter === '8' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">8. Sınıf</button>
-        </div>
-    `;
-    
-    const sortHtml = `
-        <div class="flex gap-2 mb-4 flex-wrap">
-            <button onclick="setSortOrder('default')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'default' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Varsayılan</button>
-            <button onclick="setSortOrder('net-desc')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'net-desc' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Ort.Net (Yüksek↓)</button>
-            <button onclick="setSortOrder('net-asc')" class="px-4 py-2.5 min-h-[44px] rounded-full text-sm font-bold border transition ${store.currentSortOrder === 'net-asc' ? 'bg-blue-600 border-blue-600 text-white shadow-xs' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'}">Ort.Net (Düşük↑)</button>
-        </div>
-    `;
-    
-    const studentsHtml = sorted.length === 0 
-        ? `<div class="app-panel col-span-full cf-empty-state">
-            <div class="cf-empty-icon"><i class="fas fa-users"></i></div>
-            <h3 class="cf-empty-title">Kayıtlı Öğrenci Bulunmuyor</h3>
-            <p class="cf-empty-desc">Sisteme ilk öğrencinizi ekleyerek deneme analizleri, ödev takibi ve rehberlik planlamalarını başlatabilirsiniz.</p>
-            <button onclick="showAddStudentModal()" class="cf-btn-primary min-h-[44px]"><i class="fas fa-plus mr-1"></i> Yeni Öğrenci Ekle</button>
-        </div>`
-        : sorted.map(s => {
-            const sinifGoster = s.sinif ? `${s.sinif}. Sınıf` : "Sınıf belirtilmemiş";
-            
-            return `
-                <div onclick="selectStudent('${s.id}')" class="app-panel p-5 relative cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700 transition">
-                    <div class="pr-16">
-                        <h3 class="text-xl font-bold">${escapeHtml(s.adSoyad)}</h3>
-                        <p class="text-base text-gray-600 dark:text-gray-300">${escapeHtml(s.okul || 'Okul belirtilmemiş')} · ${escapeHtml(sinifGoster)}</p>
-                    </div>
-                    <div class="absolute top-2 right-2 flex gap-1">
-                        <button onclick="event.stopPropagation(); editStudent('${s.id}')" class="text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl p-2 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Düzenle" aria-label="Öğrenciyi düzenle"><i class="fas fa-pen"></i></button>
-                        <button onclick="event.stopPropagation(); deleteStudent('${s.id}')" class="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl p-2 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Sil" aria-label="Öğrenciyi sil"><i class="fas fa-trash"></i></button>
-                    </div>
-                    <div class="text-sm font-bold text-indigo-600 dark:text-indigo-300 mt-4"><i class="fas fa-arrow-right mr-1"></i> Öğrenci Kokpitini aç</div>
-                </div>
-            `;
-        }).join('');
-        
-    const shortcutsHtml = `
-        <div class="app-panel p-4 mb-4">
-            <h3 class="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <i class="fas fa-bolt text-indigo-500"></i> Hızlı İşlemler
-            </h3>
-            <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
-                <button onclick="showAddStudentModal()" class="btn-primary flex items-center gap-2 px-4 py-2 text-sm whitespace-nowrap min-h-[44px]">
-                    <i class="fas fa-user-plus text-base"></i> Yeni Öğrenci Ekle
+
+    const grades = [
+        { key: 'all', label: 'Tümü' },
+        { key: '5', label: '5. Sınıf' },
+        { key: '6', label: '6. Sınıf' },
+        { key: '7', label: '7. Sınıf' },
+        { key: '8', label: '8. Sınıf' }
+    ];
+
+    const gradeCounts = {
+        all: students.length,
+        '5': students.filter(s => s.sinif === '5').length,
+        '6': students.filter(s => s.sinif === '6').length,
+        '7': students.filter(s => s.sinif === '7').length,
+        '8': students.filter(s => s.sinif === '8').length
+    };
+
+    const activeFilterLabel = store.activeFilter === 'all' ? 'Tüm sınıflar' : `${store.activeFilter}. Sınıf`;
+
+    const cardsHtml = sorted.length === 0
+        ? (students.length === 0
+            ? `<div class="p-8 text-center cf-empty-state rounded-2xl border border-dashed border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/60">
+                <div class="cf-empty-icon mb-2 text-2xl text-blue-500"><i class="fas fa-users"></i></div>
+                <h4 class="font-black text-base text-gray-900 dark:text-white">Henüz öğrenci eklenmemiş.</h4>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">Sisteme ilk öğrencinizi ekleyerek deneme analizleri, ödev takibi ve rehberlik planlamalarını başlatabilirsiniz.</p>
+                <button onclick="showAddStudentModal()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition min-h-[44px]">
+                    <i class="fas fa-plus"></i> Yeni Öğrenci Ekle
                 </button>
-                <button onclick="showDenemeAtaModal()" class="btn-secondary flex items-center gap-2 px-4 py-2 text-sm whitespace-nowrap min-h-[44px]">
-                    <i class="fas fa-copy text-base"></i> Toplu Deneme Ata
+            </div>`
+            : `<div class="p-6 text-center rounded-2xl border border-dashed border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/60">
+                <div class="text-2xl text-gray-400 mb-2"><i class="fas fa-user-graduate"></i></div>
+                <h4 class="font-bold text-sm text-gray-800 dark:text-gray-200">Bu sınıfta henüz öğrenci yok.</h4>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${store.activeFilter}. sınıf için kayıtlı öğrenci bulunmuyor.</p>
+                <button onclick="showAddStudentModal()" class="mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition min-h-[44px]">
+                    <i class="fas fa-plus"></i> Bu Sınıfa Öğrenci Ekle
                 </button>
-            </div>
+            </div>`
+        )
+        : `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${sorted.map(s => {
+                const sinifGoster = s.sinif ? `${s.sinif}. Sınıf` : "Sınıf belirtilmemiş";
+                const cardStyle = getGradeAccentClasses(s.sinif);
+                const avgNet = getOrtalamaNet(s);
+                const hasAvgNet = avgNet !== null && avgNet !== undefined && avgNet > 0;
+
+                return `
+                    <div onclick="selectStudent('${s.id}')" class="app-panel ${cardStyle.borderLeft} p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer flex flex-col justify-between group">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="pr-2 min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate">${escapeHtml(s.adSoyad)}</h3>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${cardStyle.badge}">
+                                        ${escapeHtml(sinifGoster)}
+                                    </span>
+                                </div>
+                                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                    <i class="fas fa-school text-gray-400 mr-1"></i>${escapeHtml(s.okul || 'Okul belirtilmemiş')}
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button onclick="event.stopPropagation(); editStudent('${s.id}')" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-xl w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center transition" title="Düzenle" aria-label="Öğrenciyi düzenle">
+                                    <i class="fas fa-pen text-sm"></i>
+                                </button>
+                                <button onclick="event.stopPropagation(); deleteStudent('${s.id}')" class="text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center transition" title="Sil" aria-label="Öğrenciyi sil">
+                                    <i class="fas fa-trash-alt text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition">
+                                <span>Öğrenci Kokpitini aç</span>
+                                <i class="fas fa-arrow-right text-xs transition-transform group-hover:translate-x-1"></i>
+                            </span>
+                            ${hasAvgNet ? `
+                                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 px-2 py-0.5 rounded-md border border-gray-100 dark:border-gray-800">
+                                    Ort: <strong class="text-gray-900 dark:text-white font-bold">${formatCockpitNet(avgNet)}</strong> net
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>`;
+
+    const accordionHtml = `
+        <div class="space-y-2 mb-4" id="students-class-accordion" role="region" aria-label="Sınıf Listesi ve Öğrenciler">
+            ${grades.map(g => {
+                const isActive = store.activeFilter === g.key;
+                const count = gradeCounts[g.key] || 0;
+                const style = getGradeAccentClasses(g.key);
+
+                return `
+                    <div class="app-panel rounded-2xl border ${isActive ? 'border-gray-300 dark:border-gray-700 shadow-xs' : 'border-gray-200 dark:border-gray-800'} overflow-hidden transition">
+                        <!-- Sınıf Satırı (Accordion Header) -->
+                        <button type="button"
+                                onclick="filterStudentsByClass('${g.key}')"
+                                aria-expanded="${isActive ? 'true' : 'false'}"
+                                class="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-left transition ${
+                                    isActive
+                                        ? style.activeRow
+                                        : 'bg-white dark:bg-gray-800/80 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                                }">
+                            <div class="flex items-center gap-3">
+                                <span class="w-2.5 h-2.5 rounded-full ${style.dot} shrink-0"></span>
+                                <span class="font-black text-sm sm:text-base">${g.label}</span>
+                                <span class="text-xs px-2.5 py-0.5 rounded-full font-bold ${style.badge}">
+                                    ${count}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold ${isActive ? 'opacity-80' : 'text-gray-400 dark:text-gray-500'} hidden sm:inline">
+                                    ${isActive ? 'Açık' : 'Görüntüle'}
+                                </span>
+                                <i class="fas ${isActive ? 'fa-chevron-down' : 'fa-chevron-right text-gray-400'} text-xs sm:text-sm transition-transform"></i>
+                            </div>
+                        </button>
+
+                        <!-- Accordion Gövdesi (Aktif sınıf açıkken) -->
+                        ${isActive ? `
+                            <div class="p-3 sm:p-5 border-t border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-gray-900/30">
+                                <!-- Sıralama Kontrolü ve Sayım -->
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                    <p class="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">
+                                        ${sorted.length > 0 ? `${sorted.length} öğrenci listeleniyor` : ''}
+                                    </p>
+                                    <div class="flex items-center gap-2">
+                                        <label for="student-sort-select" class="text-xs font-bold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                            <i class="fas fa-sort-amount-down text-gray-400 mr-1"></i>Sırala:
+                                        </label>
+                                        <select id="student-sort-select"
+                                                onchange="setSortOrder(this.value)"
+                                                class="min-h-[40px] px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden cursor-pointer">
+                                            <option value="default" ${store.currentSortOrder === 'default' ? 'selected' : ''}>Varsayılan</option>
+                                            <option value="net-desc" ${store.currentSortOrder === 'net-desc' ? 'selected' : ''}>Ortalama Net — Yüksekten Düşüğe</option>
+                                            <option value="net-asc" ${store.currentSortOrder === 'net-asc' ? 'selected' : ''}>Ortalama Net — Düşükten Yükseğe</option>
+                                            <option value="name-asc" ${store.currentSortOrder === 'name-asc' ? 'selected' : ''}>Ada Göre — A-Z</option>
+                                            <option value="name-desc" ${store.currentSortOrder === 'name-desc' ? 'selected' : ''}>Ada Göre — Z-A</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Öğrenci Kartları -->
+                                ${cardsHtml}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
         </div>
     `;
-    
+
     document.getElementById("dynamic-content").innerHTML = `
-        <div class="app-page"><header class="app-page-header"><div><h2 class="app-page-title">Öğrenciler</h2><p class="app-page-subtitle">${sorted.length} öğrenci · ${store.activeFilter === 'all' ? 'Tüm sınıflar' : store.activeFilter + '. sınıf'}</p></div></header>${renderStudentsTabBarHtml('students')}${shortcutsHtml}<div class="app-panel p-4"><p class="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Sınıf</p>${filterHtml}<p class="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Sıralama</p>${sortHtml}</div><div class="grid md:grid-cols-2 gap-4">${studentsHtml}</div></div>
+        <div class="app-page">
+            <header class="app-page-header flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="app-page-title">Öğrenciler</h2>
+                    <p class="app-page-subtitle text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        ${filtered.length} öğrenci · ${activeFilterLabel}
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="showAddStudentModal()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition min-h-[44px]">
+                        <i class="fas fa-plus"></i>
+                        <span>Yeni Öğrenci</span>
+                    </button>
+                    <button onclick="showDenemeAtaModal()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 shadow-xs transition min-h-[44px]">
+                        <i class="fas fa-copy"></i>
+                        <span>Toplu Deneme Ata</span>
+                    </button>
+                </div>
+            </header>
+            ${renderStudentsTabBarHtml('students')}
+            ${accordionHtml}
+        </div>
     `;
 }
 
@@ -1215,6 +1367,8 @@ export function getSortedStudents(students, order) {
     const withAvg = students.map(s => ({ ...s, ortalamaNet: getOrtalamaNet(s) }));
     if (order === 'net-desc') return withAvg.sort((a, b) => b.ortalamaNet - a.ortalamaNet);
     if (order === 'net-asc') return withAvg.sort((a, b) => a.ortalamaNet - b.ortalamaNet);
+    if (order === 'name-asc') return [...students].sort((a, b) => (a.adSoyad || '').localeCompare(b.adSoyad || '', 'tr'));
+    if (order === 'name-desc') return [...students].sort((a, b) => (b.adSoyad || '').localeCompare(a.adSoyad || '', 'tr'));
     return students;
 }
 
@@ -1235,6 +1389,7 @@ export function setFilter(sinif) {
         renderHomeScreen();
     }
 }
+export const filterStudentsByClass = setFilter;
 
 export async function deleteStudent(id) {
     if (confirm("Öğrenciyi tamamen silmek istediğinize emin misiniz?")) {
@@ -3457,3 +3612,6 @@ window.calculateStudentSchoolExamPerformance = calculateStudentSchoolExamPerform
 window.calculateStudentHomeworkPerformance = calculateStudentHomeworkPerformance;
 window.renderCockpitPerformanceTab = renderCockpitPerformanceTab;
 window.renderCockpitExamsSection = renderCockpitExamsSection;
+window.getGradeAccentClasses = getGradeAccentClasses;
+window.getSortedStudents = getSortedStudents;
+window.filterStudentsByClass = filterStudentsByClass;
