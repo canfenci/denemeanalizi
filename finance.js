@@ -199,20 +199,66 @@ export function renderDersKayitlari() {
         return;
     }
     
-    let cardsHtml = '<div class="grid md:grid-cols-2 gap-4">';
+    let cardsHtml = '<div class="grid md:grid-cols-2 gap-3 md:gap-4">';
     for (let s of students) {
-        const dersUcreti = parseFloat(s.dersUcreti) || parseFloat(s.aylikUcret) || parseFloat(s.ucret) || 0;
+        const rawFee = (s.dersUcreti !== undefined && s.dersUcreti !== null && s.dersUcreti !== '')
+            ? s.dersUcreti
+            : ((s.aylikUcret !== undefined && s.aylikUcret !== null && s.aylikUcret !== '')
+                ? s.aylikUcret
+                : s.ucret);
+        const parsedFee = parseFloat(rawFee);
+        const feeDefined = !isNaN(parsedFee) && parsedFee > 0;
+        const dersUcreti = feeDefined ? parsedFee : 0;
         const { toplamDers, ucretlendirilenDersSayisi, odenenDersSayisi, toplamOdeme } = getDersOzet(s.id, dersUcreti);
+
+        let summaryHtml = '';
+        if (toplamDers === 0) {
+            summaryHtml = `<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Henüz ders kaydı yok</p>`;
+        } else if (!feeDefined) {
+            summaryHtml = `
+                <p class="text-xs text-gray-600 dark:text-gray-300 mt-1.5 flex flex-wrap items-center gap-1">
+                    <span>${toplamDers} ders</span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span>${odenenDersSayisi} ödendi</span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span class="text-amber-600 dark:text-amber-400 font-medium">Ücret tanımlı değil</span>
+                </p>
+            `;
+        } else {
+            let paymentColorClass = 'text-gray-600 dark:text-gray-300';
+            if (ucretlendirilenDersSayisi > 0) {
+                if (odenenDersSayisi >= ucretlendirilenDersSayisi) {
+                    paymentColorClass = 'text-emerald-600 dark:text-emerald-400 font-semibold';
+                } else if (odenenDersSayisi > 0) {
+                    paymentColorClass = 'text-amber-600 dark:text-amber-400 font-semibold';
+                } else {
+                    paymentColorClass = 'text-rose-600 dark:text-rose-400 font-semibold';
+                }
+            }
+            summaryHtml = `
+                <p class="text-xs text-gray-600 dark:text-gray-300 mt-1.5 flex flex-wrap items-center gap-1">
+                    <span>${toplamDers} ders</span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span class="${paymentColorClass}">${odenenDersSayisi} ödendi</span>
+                    <span class="text-gray-300 dark:text-gray-600">·</span>
+                    <span class="text-gray-700 dark:text-gray-200">Tahsil ${toplamOdeme} TL</span>
+                </p>
+            `;
+        }
+
+        const feeHtml = feeDefined
+            ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Ders ücreti: ${dersUcreti} TL</p>`
+            : '';
+
         cardsHtml += `
-            <div class="app-panel p-5 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700 transition" onclick="renderDersDetay('${s.id}')">
-                <div class="flex justify-between items-start gap-3">
-                    <div><h3 class="text-lg font-black">${escapeHtml(s.adSoyad)}</h3><p class="text-sm text-gray-500 mt-1">Bir ders ücreti · ${dersUcreti} TL</p></div>
-                    <span class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 flex items-center justify-center"><i class="fas fa-chevron-right"></i></span>
+            <div class="app-panel p-3.5 sm:p-4 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs rounded-xl" onclick="renderDersDetay('${s.id}')">
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-base font-bold text-gray-900 dark:text-gray-100 truncate">${escapeHtml(s.adSoyad)}</h3>
+                    ${feeHtml}
+                    ${summaryHtml}
                 </div>
-                <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t dark:border-gray-700 text-center">
-                    <div><p class="text-xs text-gray-500">Ders</p><p class="font-black">${toplamDers}</p></div>
-                    <div><p class="text-xs text-gray-500">Ödenen</p><p class="font-black text-emerald-600">${odenenDersSayisi}/${ucretlendirilenDersSayisi}</p></div>
-                    <div><p class="text-xs text-gray-500">Toplam</p><p class="font-black text-indigo-600">${toplamOdeme} TL</p></div>
+                <div class="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition" aria-hidden="true">
+                    <i class="fas fa-chevron-right text-xs"></i>
                 </div>
             </div>`;
     }
