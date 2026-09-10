@@ -81,7 +81,7 @@ export function renderFinanceReport() {
     
     let rowsHtml = '';
     if (studentFinanceRows.length === 0) {
-        rowsHtml = `<tr><td colspan="7" class="text-center p-4 text-gray-500">Öğrenci bulunmuyor.</td></tr>`;
+        rowsHtml = `<tr><td colspan="7" class="text-center py-6 px-4 text-sm text-gray-500 dark:text-gray-400">Öğrenci bulunmuyor.</td></tr>`;
     } else {
         rowsHtml = studentFinanceRows.map(row => {
             const whMsg = `Merhaba Sayın Velimiz,\n\n*${row.adSoyad}* isimli öğrencimizin ders ödeme takip detayı aşağıdaki gibidir:\n\n` +
@@ -98,20 +98,29 @@ export function renderFinanceReport() {
             const whUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(whMsg)}`;
             
             const whBtn = row.pendingAmount > 0 
-                ? `<a href="${whUrl}" target="_blank" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-3 py-2 rounded-xl text-sm inline-flex items-center gap-1 font-semibold transition shadow-md min-h-[44px]">
+                ? `<a href="${whUrl}" target="_blank" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm inline-flex items-center gap-1.5 font-semibold transition shadow-sm min-h-[44px]">
                        <i class="fab fa-whatsapp"></i> Hatırlat
                    </a>`
-                : `<span class="text-sm text-green-600 font-bold"><i class="fas fa-check-circle"></i> Borç Yok</span>`;
+                : `<span class="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center gap-1"><i class="fas fa-check-circle"></i> Borç Yok</span>`;
             
+            const ucretDisi = (row.statusCounts?.iptal || 0) + (row.statusCounts?.mazeretli || 0) + (row.statusCounts?.gelmedi || 0);
+            const planlandi = row.statusCounts?.planlandi || 0;
+            const secondaryParts = [];
+            if (ucretDisi > 0) secondaryParts.push(`${ucretDisi} ücret dışı`);
+            if (planlandi > 0) secondaryParts.push(`${planlandi} planlı`);
+            const secondaryHtml = secondaryParts.length > 0
+                ? `<div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">${secondaryParts.join(' · ')}</div>`
+                : '';
+
             return `
-                <tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                    <td class="p-4 text-base font-semibold">${escapeHtml(row.adSoyad)}</td>
-                    <td class="p-4 text-base">${row.ucret} TL</td>
-                    <td class="p-4 text-base">${row.paidDersCount + row.pendingDersCount}<br><span class="text-xs text-gray-400">${row.statusCounts.iptal + row.statusCounts.mazeretli + row.statusCounts.gelmedi} ücret dışı · ${row.statusCounts.planlandi} planlandı</span></td>
-                    <td class="p-4 text-base text-green-600 font-bold">${row.paidDersCount} (${row.paidAmount} TL)</td>
-                    <td class="p-4 text-base text-yellow-600 dark:text-yellow-400 font-bold">${row.pendingDersCount} (${row.pendingAmount} TL)</td>
-                    <td class="p-4 text-base font-bold text-indigo-600 dark:text-indigo-400">${row.paidAmount + row.pendingAmount} TL</td>
-                    <td class="p-4 text-base">${whBtn}</td>
+                <tr class="border-b border-gray-100 dark:border-gray-700/60 hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition">
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(row.adSoyad)}</td>
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">${row.ucret} TL</td>
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm font-semibold text-gray-800 dark:text-gray-200">${row.paidDersCount + row.pendingDersCount}${secondaryHtml}</td>
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap">${row.paidDersCount} (${row.paidAmount} TL)</td>
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm text-amber-600 dark:text-amber-400 font-bold whitespace-nowrap">${row.pendingDersCount} (${row.pendingAmount} TL)</td>
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${row.paidAmount + row.pendingAmount} TL</td>
+                    <td class="py-2.5 px-3 sm:py-3 sm:px-3.5 text-sm whitespace-nowrap">${whBtn}</td>
                 </tr>
             `;
         }).join('');
@@ -126,8 +135,8 @@ export function renderFinanceReport() {
                 </div>
             </header>
             ${renderDerslerTabBarHtml('finance')}
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 border border-gray-100/20 dark:border-gray-700/50">
-                <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4 sm:p-6 border border-gray-100/20 dark:border-gray-700/50">
+                <div class="flex justify-between items-center mb-5 flex-wrap gap-3">
                     <div>
                         <h3 class="text-xl font-black text-gray-800 dark:text-white border-b-2 border-primary/20 pb-2 mb-1">
                             <i class="fas fa-wallet text-amber-500"></i> Finans / Ödeme Raporu
@@ -136,22 +145,22 @@ export function renderFinanceReport() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="cf-card p-4 text-center">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+                    <div class="cf-card p-3 sm:p-3.5 text-center">
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Aktif Ücretli Öğrenci</span>
-                        <div class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">${activeFeeStudentsCount} / ${students.length}</div>
+                        <div class="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">${activeFeeStudentsCount} aktif / ${students.length} toplam</div>
                     </div>
-                    <div class="cf-card p-4 text-center">
+                    <div class="cf-card p-3 sm:p-3.5 text-center">
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Yapılan Toplam Ders</span>
-                        <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">${totalCompletedLessons + totalPendingLessons} Saat</div>
+                        <div class="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 mt-0.5">${totalCompletedLessons + totalPendingLessons} Saat</div>
                     </div>
-                    <div class="cf-card p-4 text-center">
+                    <div class="cf-card p-3 sm:p-3.5 text-center">
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Tahsil Edilen Toplam Tutar</span>
-                        <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${totalRevenueCollected} TL</div>
+                        <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">${totalRevenueCollected} TL</div>
                     </div>
-                    <div class="cf-card p-4 text-center">
+                    <div class="cf-card p-3 sm:p-3.5 text-center">
                         <span class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Ödeme Bekleyen Tutar</span>
-                        <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">${totalPendingRevenue} TL</div>
+                        <div class="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">${totalPendingRevenue} TL</div>
                     </div>
                 </div>
 
@@ -159,13 +168,13 @@ export function renderFinanceReport() {
                     <table class="w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                         <thead class="bg-gray-800 dark:bg-gray-900 text-white">
                             <tr>
-                                <th class="border p-4 text-left text-sm font-bold">Öğrenci</th>
-                                <th class="border p-4 text-left text-sm font-bold">Ders Ücreti</th>
-                                <th class="border p-4 text-left text-sm font-bold">Toplam Ders</th>
-                                <th class="border p-4 text-left text-sm font-bold">Ödenen (Tutar)</th>
-                                <th class="border p-4 text-left text-sm font-bold">Bekleyen (Tutar)</th>
-                                <th class="border p-4 text-left text-sm font-bold">Genel Toplam</th>
-                                <th class="border p-4 text-left text-sm font-bold">İşlemler</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold">Öğrenci</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold whitespace-nowrap">Ders Ücreti</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold whitespace-nowrap">Ders</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold whitespace-nowrap">Tahsil</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold whitespace-nowrap">Bekleyen</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold whitespace-nowrap">Toplam</th>
+                                <th class="border border-gray-700 dark:border-gray-800 py-2.5 px-3 sm:py-3 sm:px-3.5 text-left text-xs sm:text-sm font-bold whitespace-nowrap">İşlem</th>
                             </tr>
                         </thead>
                         <tbody>
