@@ -4,10 +4,11 @@ import { buildCockpitStatusItems, getCockpitData, getStudentInitials } from '../
 
 test('cockpit derives only supported metrics and priorities from existing records', () => {
   const student = {
+    sinif: '8',
     hedefNet: 70,
     denemeler: [
-      { tip: 'genel', tarih: '2026-08-01', toplamNet: 55 },
-      { tip: 'genel', tarih: '2026-08-08', toplamNet: 61 },
+      { tip: 'genel', sinif: '8', toplamSoru: 90, tarih: '2026-08-01', toplamNet: 55 },
+      { tip: 'genel', sinif: '8', toplamSoru: 90, tarih: '2026-08-08', toplamNet: 61 },
       { tip: 'branş', sorular: [{ konuAdi: 'Basınç', durum: 'yanlis', hataKodu: 'Dikkatsizlik' }] }
     ]
   };

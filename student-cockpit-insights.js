@@ -22,12 +22,116 @@ export function formatCockpitNet(value) {
         : '—';
 }
 
-export function getCockpitData({ student, homeworks = [], summary, analysis, timeline = [] }) {
-    const generalExams = (student.denemeler || [])
+export function classifyCockpitTrend(changeNet) {
+    if (changeNet === null || changeNet === undefined || !Number.isFinite(Number(changeNet))) {
+        return null;
+    }
+    const delta = Number(changeNet);
+    if (delta >= 1.0) {
+        return {
+            label: 'Yükseliş',
+            direction: 'up',
+            tone: 'positive',
+            badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
+            icon: 'fa-arrow-trend-up',
+            prefix: '+'
+        };
+    }
+    if (delta <= -1.0) {
+        return {
+            label: 'Düşüş',
+            direction: 'down',
+            tone: 'critical',
+            badgeClass: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800/60',
+            icon: 'fa-arrow-trend-down',
+            prefix: ''
+        };
+    }
+    return {
+        label: 'Yatay',
+        direction: 'flat',
+        tone: 'neutral',
+        badgeClass: 'bg-slate-50 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+        icon: 'fa-arrow-right',
+        prefix: delta > 0 ? '+' : ''
+    };
+}
+
+export function getExamTotalQuestions(exam) {
+    if (!exam) return 0;
+    const direct = Number(exam.toplamSoru ?? exam.soruSayisi);
+    if (Number.isFinite(direct) && direct > 0) return direct;
+    if (Array.isArray(exam.sorular) && exam.sorular.length > 0) return exam.sorular.length;
+    if (Array.isArray(exam.dersBilgileri) && exam.dersBilgileri.length > 0) {
+        const sum = exam.dersBilgileri.reduce((acc, d) => acc + (Number(d.adet) || 0), 0);
+        if (sum > 0) return sum;
+    }
+    return 0;
+}
+
+export function getCockpitExamComparabilityKey(exam, student = null) {
+    if (!exam || exam.tip !== 'genel') return null;
+    if (!exam.tarih || !Number.isFinite(Number(exam.toplamNet))) return null;
+
+    const totalQuestions = getExamTotalQuestions(exam);
+    if (!totalQuestions || totalQuestions <= 0) return null;
+
+    const parseGrade = (val) => {
+        if (val === null || val === undefined) return null;
+        const s = String(val).trim().toLocaleLowerCase('tr-TR');
+        if (/^8(\b|\D)/.test(s) || s === '8' || s.includes('lgs')) return '8';
+        if (/^7(\b|\D)/.test(s) || s === '7') return '7';
+        if (/^6(\b|\D)/.test(s) || s === '6') return '6';
+        if (/^5(\b|\D)/.test(s) || s === '5') return '5';
+        return null;
+    };
+
+    // 1. Explicit grade on exam itself (highest priority)
+    let grade = parseGrade(exam.sinif) || parseGrade(exam.sinifSeviyesi);
+
+    // 2. Exam title cues
+    if (!grade) {
+        const title = String(exam.denemeAdi || exam.ad || '').trim().toLocaleLowerCase('tr-TR');
+        if (title.includes('lgs') || /(?<!\d)8\s*\.?\s*s[ıi]n[ıi]f/i.test(title)) grade = '8';
+        else if (/(?<!\d)7\s*\.?\s*s[ıi]n[ıi]f/i.test(title)) grade = '7';
+        else if (/(?<!\d)6\s*\.?\s*s[ıi]n[ıi]f/i.test(title)) grade = '6';
+        else if (/(?<!\d)5\s*\.?\s*s[ıi]n[ıi]f/i.test(title)) grade = '5';
+    }
+
+    // 3. 90-Question LGS curriculum signature
+    // In Turkish secondary curriculum, 90 questions is uniquely the 6-subject Grade 8 LGS format.
+    // If student is recorded as 8 or unspecified, and totalQuestions === 90, grade is 8.
+    // If student is explicitly non-8 (5, 6, 7), it should not be forced into grade 8.
+    if (!grade && totalQuestions === 90) {
+        const studentGrade = student ? (parseGrade(student.sinif) || parseGrade(student.grup)) : null;
+        if (!studentGrade || studentGrade === '8') {
+            grade = '8';
+        }
+    }
+
+    // 4. Safe fallback: If grade is still unknown (e.g. 60-question exam with no grade metadata,
+    // even if student is currently in grade 8):
+    // Historical metadata yoksa tahmin üretme.
+    if (!grade) return null;
+
+    return `grade${grade}-general-${totalQuestions}`;
+}
+
+export function getCockpitData({ student, homeworks = [], summary = {}, analysis = {}, timeline = [] }) {
+    const rawGeneralExams = (student.denemeler || [])
         .filter(exam => exam.tip === 'genel' && exam.tarih && Number.isFinite(Number(exam.toplamNet)))
         .sort((a, b) => String(a.tarih).localeCompare(String(b.tarih)));
-    const recentExams = generalExams.slice(-5);
-    const averageWindow = generalExams.slice(-5);
+    const withKeys = rawGeneralExams.map(exam => ({
+        exam,
+        key: getCockpitExamComparabilityKey(exam, student)
+    }));
+    const latestComparable = [...withKeys].reverse().find(item => item.key !== null);
+    const targetKey = latestComparable ? latestComparable.key : null;
+    const comparableExams = targetKey
+        ? withKeys.filter(item => item.key === targetKey).map(item => item.exam)
+        : [];
+    const recentExams = comparableExams.slice(-5);
+    const averageWindow = recentExams;
     const averageNet = averageWindow.length
         ? round(averageWindow.reduce((sum, exam) => sum + number(exam.toplamNet), 0) / averageWindow.length)
         : null;
@@ -67,6 +171,7 @@ export function getCockpitData({ student, homeworks = [], summary, analysis, tim
     const trendDelta = recentExams.length >= 2
         ? round(number(recentExams.at(-1).toplamNet) - number(recentExams[0].toplamNet))
         : null;
+    const trendClassification = classifyCockpitTrend(trendDelta);
     const lastThree = recentExams.slice(-3);
     const lastThreeDelta = lastThree.length === 3
         ? round(number(lastThree.at(-1).toplamNet) - number(lastThree[0].toplamNet))
@@ -76,8 +181,10 @@ export function getCockpitData({ student, homeworks = [], summary, analysis, tim
         : null;
 
     return {
-        generalExams,
+        generalExams: comparableExams,
+        comparableExams,
         recentExams,
+        comparabilityKey: targetKey,
         averageNet,
         averageCount: averageWindow.length,
         targetGap,
@@ -88,6 +195,7 @@ export function getCockpitData({ student, homeworks = [], summary, analysis, tim
         mostFrequentError,
         priority: priorities,
         trendDelta,
+        trendClassification,
         lastThreeDelta,
         timeline: timeline.slice(0, 7),
         upcomingLesson: summary.upcomingLesson || null,

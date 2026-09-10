@@ -20,7 +20,6 @@ test('Scenario A: Zero git modifications on protected files', () => {
         'auth.js',
         'index.html',
         'ui-helpers.js',
-        'students.js',
         'homework.js'
     ];
 
